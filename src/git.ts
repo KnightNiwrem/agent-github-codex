@@ -2,6 +2,20 @@ import { isAbsolute, resolve } from "node:path";
 import { AppError } from "./errors";
 import type { ShellRunner } from "./types";
 
+const HARNESS_GIT_PATHS = [".agc"];
+
+function withExcludedPaths(
+  baseArgs: string[],
+  excludedPaths: string[],
+): string[] {
+  return [
+    ...baseArgs,
+    "--",
+    ".",
+    ...excludedPaths.map((path) => `:(exclude)${path}`),
+  ];
+}
+
 export class GitClient {
   constructor(private readonly shell: ShellRunner) {}
 
@@ -36,7 +50,10 @@ export class GitClient {
 
   async ensureCleanWorkspace(cwd: string): Promise<void> {
     const result = await this.shell.run({
-      args: ["git", "status", "--porcelain"],
+      args: withExcludedPaths(
+        ["git", "status", "--porcelain"],
+        HARNESS_GIT_PATHS,
+      ),
       cwd,
     });
 
@@ -65,7 +82,10 @@ export class GitClient {
 
   async hasChanges(cwd: string): Promise<boolean> {
     const result = await this.shell.run({
-      args: ["git", "status", "--porcelain"],
+      args: withExcludedPaths(
+        ["git", "status", "--porcelain"],
+        HARNESS_GIT_PATHS,
+      ),
       cwd,
     });
 
@@ -74,7 +94,7 @@ export class GitClient {
 
   async stageAll(cwd: string): Promise<void> {
     await this.shell.run({
-      args: ["git", "add", "--all"],
+      args: withExcludedPaths(["git", "add", "--all"], HARNESS_GIT_PATHS),
       cwd,
     });
   }
