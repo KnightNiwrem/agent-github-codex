@@ -16,6 +16,8 @@ export class BunShellRunner implements ShellRunner {
     let processHandle: Bun.Subprocess<"pipe", "pipe", "pipe">;
 
     try {
+      // Keep process execution argv-based and per-call. Bun.$ would add a
+      // shell-language layer plus global mutable defaults we do not need here.
       processHandle = Bun.spawn({
         cmd: spec.args,
         cwd: spec.cwd,

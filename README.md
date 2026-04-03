@@ -179,6 +179,19 @@ The CLI includes code-driven fallbacks for the helper text generation steps:
 
 If Codex helper calls fail for those bounded text tasks, the workflow still proceeds.
 
+## Process Execution Design
+
+The CLI intentionally keeps subprocess execution behind the `ShellRunner` abstraction in [`src/shell.ts`](./src/shell.ts) and currently implements it with `Bun.spawn`, not `Bun.$`.
+
+That choice is deliberate:
+
+- the workflow already builds exact argv arrays for `git`, `gh`, and `codex`, so `Bun.spawn` maps directly onto the command model we use
+- per-command `cwd`, `env`, optional stdin, separate stdout/stderr capture, and explicit non-zero exit handling are all first-class in the current runner
+- tests can replace `ShellRunner` with a simple fake that asserts exact command arguments and ordering without parsing shell strings
+- `Bun.$` is useful when the shell language itself is the abstraction, but it adds a shell-style composition layer plus mutable global defaults like `$.cwd()` and `$.env()` that this CLI does not need
+
+Based on the Bun 1.3.11 docs and the current codebase shape, migrating this project to `Bun.$` would not materially simplify the implementation. It would mostly translate an argv-based runner into shell syntax, while making command construction and test seams less direct. Revisit the decision only if the CLI starts needing pipelines, redirection-heavy commands, or multi-command shell scripts that are awkward to express with `Bun.spawn`.
+
 ## Major Failure Conditions
 
 The CLI exits non-zero when:
