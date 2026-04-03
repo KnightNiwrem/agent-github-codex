@@ -108,7 +108,13 @@ The harness creates and manages this layout:
 
 `state/` is reserved for transient harness runtime files such as Codex output scratch directories.
 
-The harness does not manage Git ignore rules for `.agc/`. That directory is repository-local on purpose, and users can choose whether to commit it or ignore it. For most repositories, adding `.agc/` to `.gitignore` is the better default so local harness state stays untracked while the config remains easy to locate.
+The harness does not manage Git ignore rules for `.agc/`. That directory is repository-local on purpose, and users can choose whether to commit it or ignore it. For most repositories, adding `.agc/` to `.gitignore` is strongly recommended; otherwise `.agc/config.json` and transient files under `.agc/state/` can be picked up by the workflow's `git add --all` step and committed to the PR branch.
+
+If a repository wants to track `.agc/config.json` but keep runtime scratch files out of version control, prefer an ignore pattern like:
+
+```gitignore
+.agc/state/
+```
 
 ## Workflow
 
