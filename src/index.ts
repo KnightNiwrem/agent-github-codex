@@ -8,7 +8,7 @@ import { runPromptWorkflow } from "./workflow";
 const program = new Command();
 
 program
-  .name("deer-agent")
+  .name("agc")
   .description(
     "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   )

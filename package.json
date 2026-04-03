@@ -4,7 +4,7 @@
   "description": "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   "module": "src/index.ts",
   "bin": {
-    "deer-agent": "./src/index.ts"
+    "agc": "./src/index.ts"
   },
   "type": "module",
   "preferGlobal": true,
