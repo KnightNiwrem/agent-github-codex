@@ -61,6 +61,7 @@ export interface WorkflowResult {
 
 export interface ReviewLoopState {
   seenCommentIds: Set<number>;
+  ignoredCommentIds: Set<number>;
 }
 
 export interface WorkflowOptions {
@@ -69,4 +70,5 @@ export interface WorkflowOptions {
 
 export interface HarnessConfig {
   pullRequestReviewers: string[];
+  trustedReviewCommenters: string[];
 }

@@ -30,12 +30,44 @@ test("creates a default .agc layout and config", async () => {
   expect(state.rootDir).toBe(join(repoRoot, ".agc"));
   expect(state.stateDir).toBe(join(repoRoot, ".agc", "state"));
   expect(state.config.pullRequestReviewers).toEqual(["@copilot"]);
+  expect(state.config.trustedReviewCommenters).toEqual(["@copilot"]);
   expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
     pullRequestReviewers: ["@copilot"],
+    trustedReviewCommenters: ["@copilot"],
   });
 });
 
 test("reuses existing .agc reviewer configuration", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify(
+      {
+        pullRequestReviewers: ["@review-bot", "@copilot"],
+        trustedReviewCommenters: ["review-bot", "@copilot", "@copilot"],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const state = await workspace.ensure(repoRoot);
+
+  expect(state.config.pullRequestReviewers).toEqual([
+    "@review-bot",
+    "@copilot",
+  ]);
+  expect(state.config.trustedReviewCommenters).toEqual([
+    "review-bot",
+    "@copilot",
+  ]);
+});
+
+test("defaults trusted review commenters from pull request reviewers", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -48,7 +80,7 @@ test("reuses existing .agc reviewer configuration", async () => {
 
   const state = await workspace.ensure(repoRoot);
 
-  expect(state.config.pullRequestReviewers).toEqual([
+  expect(state.config.trustedReviewCommenters).toEqual([
     "@review-bot",
     "@copilot",
   ]);

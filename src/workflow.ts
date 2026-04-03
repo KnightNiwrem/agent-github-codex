@@ -32,12 +32,29 @@ export interface WorkflowDependencies {
 function actionableReviewComments(
   comments: ReviewComment[],
   seenCommentIds: Set<number>,
+  ignoredCommentIds: Set<number>,
 ): ReviewComment[] {
   return comments.filter(
     (comment) =>
       !seenCommentIds.has(comment.id) &&
+      !ignoredCommentIds.has(comment.id) &&
       !comment.inReplyToId &&
       comment.body.trim().length > 0,
+  );
+}
+
+function normalizeReviewerIdentity(
+  identity: string | undefined,
+): string | null {
+  const normalized = identity?.trim().replace(/^@+/, "").toLowerCase() ?? "";
+  return normalized.length > 0 ? normalized : null;
+}
+
+function trustedReviewCommentSet(reviewers: string[]): Set<string> {
+  return new Set(
+    reviewers
+      .map((reviewer) => normalizeReviewerIdentity(reviewer))
+      .filter((reviewer): reviewer is string => reviewer !== null),
   );
 }
 
@@ -72,6 +89,8 @@ export async function runPromptWorkflow(
     baseBranch,
     agcDir: harnessState.rootDir,
     reviewers: harnessState.config.pullRequestReviewers.join(","),
+    trustedReviewCommenters:
+      harnessState.config.trustedReviewCommenters.join(","),
   });
 
   const branch = await codex.generateBranchName(
@@ -154,6 +173,7 @@ export async function runPromptWorkflow(
 
   const reviewState: ReviewLoopState = {
     seenCommentIds: new Set<number>(),
+    ignoredCommentIds: new Set<number>(),
   };
   const reviewLoopReason = await runReviewLoop({
     prompt,
@@ -170,6 +190,7 @@ export async function runPromptWorkflow(
     reviewState,
     stateDir: harnessState.stateDir,
     reviewers: harnessState.config.pullRequestReviewers,
+    trustedReviewCommenters: harnessState.config.trustedReviewCommenters,
   });
 
   return {
@@ -196,6 +217,7 @@ interface ReviewLoopArgs {
   reviewState: ReviewLoopState;
   stateDir: string;
   reviewers: string[];
+  trustedReviewCommenters: string[];
 }
 
 async function runReviewLoop(
@@ -216,8 +238,10 @@ async function runReviewLoop(
     reviewState,
     stateDir,
     reviewers,
+    trustedReviewCommenters,
   } = args;
   let consecutiveUnproductivePolls = 0;
+  const trustedCommenters = trustedReviewCommentSet(trustedReviewCommenters);
 
   while (true) {
     logger.info("review.waiting", { pullRequestNumber, reviewPollIntervalMs });
@@ -230,9 +254,27 @@ async function runReviewLoop(
     const actionable = actionableReviewComments(
       comments,
       reviewState.seenCommentIds,
+      reviewState.ignoredCommentIds,
+    );
+    const trustedComments = actionable.filter((comment) => {
+      const commentAuthor = normalizeReviewerIdentity(comment.userLogin);
+      return commentAuthor !== null && trustedCommenters.has(commentAuthor);
+    });
+    const ignoredComments = actionable.filter(
+      (comment) => !trustedComments.includes(comment),
     );
 
-    if (actionable.length === 0) {
+    for (const comment of ignoredComments) {
+      reviewState.ignoredCommentIds.add(comment.id);
+      logger.warn("review.comment_ignored_untrusted_reviewer", {
+        pullRequestNumber,
+        commentId: comment.id,
+        reviewer: comment.userLogin ?? "unknown",
+        url: comment.url,
+      });
+    }
+
+    if (trustedComments.length === 0) {
       consecutiveUnproductivePolls += 1;
       logger.info("review.no_new_actionable_comments", {
         pullRequestNumber,
@@ -252,16 +294,16 @@ async function runReviewLoop(
 
     consecutiveUnproductivePolls = 0;
 
-    for (const comment of actionable) {
+    for (const comment of trustedComments) {
       reviewState.seenCommentIds.add(comment.id);
     }
     logger.info("review.comments_received", {
       pullRequestNumber,
-      count: actionable.length,
-      commentIds: actionable.map((comment) => comment.id).join(","),
+      count: trustedComments.length,
+      commentIds: trustedComments.map((comment) => comment.id).join(","),
     });
 
-    await codex.addressReviewComments(repoRoot, prompt, actionable);
+    await codex.addressReviewComments(repoRoot, prompt, trustedComments);
 
     if (!(await git.hasChanges(repoRoot))) {
       logger.info("review.codex_no_changes", { pullRequestNumber });
