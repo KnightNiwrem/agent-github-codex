@@ -13,6 +13,22 @@ import { runPromptWorkflow } from "./workflow";
 const testFileDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(testFileDirectory, "..");
 const temporaryDirectories: string[] = [];
+const gitStatusExcludingHarness = [
+  "git",
+  "status",
+  "--porcelain",
+  "--",
+  ".",
+  ":(exclude).agc",
+];
+const gitAddExcludingHarness = [
+  "git",
+  "add",
+  "--all",
+  "--",
+  ".",
+  ":(exclude).agc",
+];
 
 interface Step {
   match(args: string[]): boolean;
@@ -162,7 +178,7 @@ describe("workflow guards", () => {
     const shell = new SequenceShellRunner([
       exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
       exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
-      exact(["git", "status", "--porcelain"], result(" M README.md\n")),
+      exact(gitStatusExcludingHarness, result(" M README.md\n")),
     ]);
 
     await expect(
@@ -203,6 +219,31 @@ describe("workflow guards", () => {
 
     shell.assertComplete();
   });
+
+  test("ignores harness-owned .agc changes during workspace guard and no-op detection", async () => {
+    const shell = new SequenceShellRunner([
+      exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
+      exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
+      exact(gitStatusExcludingHarness, result("")),
+      codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
+      exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
+      exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
+      codexEditContains("Implement the requested change in this repository."),
+      exact(gitStatusExcludingHarness, result("")),
+      exact(["git", "checkout", "main"], result()),
+    ]);
+
+    const workflow = await runPromptWorkflow("No-op request", {
+      shell,
+      logger: new TestLogger(),
+      harness: stubHarness(),
+      sleep: async () => undefined,
+    });
+
+    expect(workflow.committed).toBe(false);
+    expect(workflow.reviewLoopReason).toBe("no_initial_changes");
+    shell.assertComplete();
+  });
 });
 
 test("feature branch naming falls back deterministically", async () => {
@@ -226,12 +267,12 @@ test("skips commit and PR creation when codex makes no changes", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
     codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
     exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
     exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
     exact(["git", "checkout", "main"], result()),
   ]);
   const logger = new TestLogger();
@@ -259,11 +300,91 @@ test("skips commit and PR creation when codex makes no changes", async () => {
   shell.assertComplete();
 });
 
+test("stages repository changes while excluding harness-owned .agc paths", async () => {
+  const shell = new SequenceShellRunner([
+    exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
+    exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
+    exact(gitStatusExcludingHarness, result("")),
+    codexOutputContains("Return only a git branch name.", "feature/docs\n"),
+    exact(["git", "check-ref-format", "--branch", "feature/docs"], result()),
+    exact(["git", "checkout", "-b", "feature/docs", "main"], result()),
+    codexEditContains("Implement the requested change in this repository."),
+    exact(gitStatusExcludingHarness, result(" M README.md\n")),
+    exact(gitAddExcludingHarness, result()),
+    exact(["git", "diff", "--cached", "--stat"], result(" README.md | 2 +-\n")),
+    codexOutputContains(
+      "Return only a single conventional commit message line.",
+      "docs: update readme\n",
+    ),
+    exact(["git", "commit", "-m", "docs: update readme"], result()),
+    exact(["git", "push", "-u", "origin", "feature/docs"], result()),
+    exact(
+      ["git", "diff", "main...HEAD", "--stat"],
+      result(" README.md | 2 +-\n"),
+    ),
+    codexOutputContains(
+      "Draft a GitHub pull request title and body.",
+      "TITLE: docs: update readme\nBODY:\nSummary\n",
+    ),
+    exact(
+      [
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "feature/docs",
+        "--title",
+        "docs: update readme",
+        "--body",
+        "Summary",
+      ],
+      result(),
+    ),
+    exact(
+      [
+        "gh",
+        "pr",
+        "view",
+        "feature/docs",
+        "--json",
+        "number,url,title,body,headRefName,baseRefName",
+      ],
+      result(
+        '{"number":12,"url":"https://example.com/pr/12","headRefName":"feature/docs","baseRefName":"main","title":"docs: update readme","body":"Summary"}\n',
+      ),
+    ),
+    exact(["gh", "pr", "edit", "12", "--add-reviewer", "@copilot"], result()),
+    exact(
+      [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        "repos/{owner}/{repo}/pulls/12/comments",
+      ],
+      result("[[]]\n"),
+    ),
+  ]);
+
+  const workflow = await runPromptWorkflow("Update docs", {
+    shell,
+    logger: new TestLogger(),
+    harness: stubHarness(),
+    sleep: async () => undefined,
+  });
+
+  expect(workflow.committed).toBe(true);
+  expect(workflow.pr?.number).toBe(12);
+  shell.assertComplete();
+});
+
 test("review loop terminates when review fixes produce no file changes", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-pass\n",
@@ -274,8 +395,8 @@ test("review loop terminates when review fixes produce no file changes", async (
     ),
     exact(["git", "checkout", "-b", "feature/review-pass", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
-    exact(["git", "status", "--porcelain"], result(" M src/index.ts\n")),
-    exact(["git", "add", "--all"], result()),
+    exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
+    exact(gitAddExcludingHarness, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -356,7 +477,7 @@ test("review loop terminates when review fixes produce no file changes", async (
     codexEditContains(
       "Review the new pull request review comments and address only valid issues.",
     ),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
   ]);
 
   const workflow = await runPromptWorkflow("Implement something", {
@@ -380,7 +501,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-wait\n",
@@ -391,8 +512,8 @@ test("review loop respects max unproductive polls before exiting", async () => {
     ),
     exact(["git", "checkout", "-b", "feature/review-wait", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
-    exact(["git", "status", "--porcelain"], result(" M src/index.ts\n")),
-    exact(["git", "add", "--all"], result()),
+    exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
+    exact(gitAddExcludingHarness, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -498,7 +619,7 @@ test("handles only new actionable review comments and re-requests review after p
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-loop\n",
@@ -509,8 +630,8 @@ test("handles only new actionable review comments and re-requests review after p
     ),
     exact(["git", "checkout", "-b", "feature/review-loop", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
-    exact(["git", "status", "--porcelain"], result(" M src/index.ts\n")),
-    exact(["git", "add", "--all"], result()),
+    exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
+    exact(gitAddExcludingHarness, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -593,8 +714,8 @@ test("handles only new actionable review comments and re-requests review after p
         reviewPrompts.push(spec.args.at(-1) ?? "");
       },
     ),
-    exact(["git", "status", "--porcelain"], result(" M src/workflow.ts\n")),
-    exact(["git", "add", "--all"], result()),
+    exact(gitStatusExcludingHarness, result(" M src/workflow.ts\n")),
+    exact(gitAddExcludingHarness, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/workflow.ts | 4 ++--\n"),
@@ -646,7 +767,7 @@ test("handles only new actionable review comments and re-requests review after p
         reviewPrompts.push(spec.args.at(-1) ?? "");
       },
     ),
-    exact(["git", "status", "--porcelain"], result("")),
+    exact(gitStatusExcludingHarness, result("")),
   ]);
 
   const workflow = await runPromptWorkflow("Implement something bigger", {

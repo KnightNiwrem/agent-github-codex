@@ -108,7 +108,15 @@ The harness creates and manages this layout:
 
 `state/` is reserved for transient harness runtime files such as Codex output scratch directories.
 
-The harness does not manage Git ignore rules for `.agc/`. That directory is repository-local on purpose, and users can choose whether to commit it or ignore it. For most repositories, adding `.agc/` to `.gitignore` is strongly recommended; otherwise `.agc/config.json` and transient files under `.agc/state/` can be picked up by the workflow's `git add --all` step and committed to the PR branch.
+The harness does not manage Git ignore rules for `.agc/`. That directory is repository-local on purpose, and users can choose whether to commit it or ignore it.
+
+The automated workflow treats `.agc/` as harness-owned state:
+
+- preflight clean-workspace checks ignore `.agc/`
+- no-op detection ignores `.agc/`
+- the workflow's `git add --all` step excludes `.agc/`
+
+That keeps first-run bootstrap and existing local harness state from blocking normal runs or being swept into automated PR commits. If a repository wants to track `.agc/config.json`, commit that file deliberately outside the automated workflow.
 
 If a repository wants to track `.agc/config.json` but keep runtime scratch files out of version control, prefer an ignore pattern like:
 
@@ -123,14 +131,14 @@ Given a single prompt argument, the CLI runs this sequence:
 1. Resolve the current repository root with `git rev-parse --show-toplevel`.
 2. Read the current branch with `git rev-parse --abbrev-ref HEAD`.
 3. Refuse to continue unless the branch is `main` or `master`.
-4. Refuse to continue unless `git status --porcelain` is empty.
+4. Refuse to continue unless `git status --porcelain -- . ':(exclude).agc'` is empty.
 5. Ensure `.agc/` exists and create `.agc/config.json` if missing.
 6. Ask Codex for a feature-branch name using `codex exec` in read-only mode.
 7. Fall back to a deterministic slugged branch name if Codex fails or returns invalid output.
 8. Create the branch from the current base branch with `git checkout -b <branch> <base>`.
 9. Invoke `codex exec` non-interactively to implement the user request.
-10. If no files changed, stop cleanly without committing or opening a PR.
-11. If files changed, stage everything with `git add --all`.
+10. If no files changed outside `.agc/`, stop cleanly without committing or opening a PR.
+11. If files changed, stage repository changes with `git add --all -- . ':(exclude).agc'`.
 12. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
 13. Commit and push the branch.
 14. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
