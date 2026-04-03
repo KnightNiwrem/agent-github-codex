@@ -1,8 +1,13 @@
 {
-  "name": "copilot-bun",
+  "name": "@deerdaily/codex-pr-agent",
+  "version": "0.1.0",
+  "description": "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   "module": "src/index.ts",
+  "bin": {
+    "deer-agent": "./src/index.ts"
+  },
   "type": "module",
-  "private": true,
+  "preferGlobal": true,
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch src/index.ts",
@@ -11,9 +16,14 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
+  "keywords": ["bun", "cli", "codex", "git", "github"],
+  "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/bun": "latest",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "commander": "^14.0.0"
   }
 }
