@@ -22,10 +22,7 @@ export interface WorkflowDependencies {
   shell: ShellRunner;
   logger: Logger;
   harness?: {
-    ensure(
-      repoRoot: string,
-      gitExcludeFile: string,
-    ): Promise<HarnessWorkspaceState>;
+    ensure(repoRoot: string): Promise<HarnessWorkspaceState>;
   };
   sleep?: (ms: number) => Promise<void>;
   reviewPollIntervalMs?: number;
@@ -68,15 +65,13 @@ export async function runPromptWorkflow(
   }
 
   await git.ensureCleanWorkspace(repoRoot);
-  const gitExcludeFile = await git.getGitPath(repoRoot, "info/exclude");
-  const harnessState = await harness.ensure(repoRoot, gitExcludeFile);
+  const harnessState = await harness.ensure(repoRoot);
 
   logger.info("workflow.start", {
     repoRoot,
     baseBranch,
     agcDir: harnessState.rootDir,
     reviewers: harnessState.config.pullRequestReviewers.join(","),
-    gitExcludeFile: harnessState.gitExcludeFile,
   });
 
   const branch = await codex.generateBranchName(
