@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CodexClient } from "./codex";
 import { AppError } from "./errors";
+import type { HarnessWorkspaceState } from "./harness";
 import { ConsoleLogger } from "./logger";
 import type { CommandResult, CommandSpec, Logger, ShellRunner } from "./types";
 import { runPromptWorkflow } from "./workflow";
 
 const testFileDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(testFileDirectory, "..");
+const harnessStateRoot = join(tmpdir(), "agc-workflow-tests");
 
 interface Step {
   match(args: string[]): boolean;
@@ -122,6 +125,22 @@ class TestLogger implements Logger {
   }
 }
 
+function stubHarness(reviewers: string[] = ["@copilot"]): {
+  ensure: (repoRoot: string) => Promise<HarnessWorkspaceState>;
+} {
+  return {
+    ensure: async (repoRoot: string) => ({
+      rootDir: `${repoRoot}/.agc`,
+      stateDir: join(harnessStateRoot, "state"),
+      configFile: `${repoRoot}/.agc/config.json`,
+      gitExcludeFile: `${repoRoot}/.git/info/exclude`,
+      config: {
+        pullRequestReviewers: reviewers,
+      },
+    }),
+  };
+}
+
 beforeEach(() => {
   process.chdir(repositoryRoot);
 });
@@ -138,6 +157,7 @@ describe("workflow guards", () => {
       runPromptWorkflow("update docs", {
         shell,
         logger: new TestLogger(),
+        harness: stubHarness(),
         sleep: async () => undefined,
       }),
     ).rejects.toThrow(
@@ -160,6 +180,7 @@ describe("workflow guards", () => {
       runPromptWorkflow("update docs", {
         shell,
         logger: new TestLogger(),
+        harness: stubHarness(),
         sleep: async () => undefined,
       }),
     ).rejects.toThrow(
@@ -177,7 +198,11 @@ test("feature branch naming falls back deterministically", async () => {
     codexOutputContains("Return only a git branch name.", ""),
   ]);
   const client = new CodexClient(shell);
-  const branch = await client.generateBranchName("/repo", "Add logging to CLI");
+  const branch = await client.generateBranchName(
+    "/repo",
+    "Add logging to CLI",
+    join(harnessStateRoot, "state"),
+  );
 
   expect(branch).toMatch(/^feature\/add-logging-to-cli-[a-f0-9]{6}$/);
   shell.assertComplete();
@@ -200,6 +225,7 @@ test("skips commit and PR creation when codex makes no changes", async () => {
   const workflow = await runPromptWorkflow("No-op request", {
     shell,
     logger,
+    harness: stubHarness(),
     sleep: async () => undefined,
   });
 
@@ -322,6 +348,7 @@ test("review loop terminates when review fixes produce no file changes", async (
   const workflow = await runPromptWorkflow("Implement something", {
     shell,
     logger: new TestLogger(),
+    harness: stubHarness(),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
   });
@@ -406,7 +433,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
         }),
       ),
     ),
-    exact(["gh", "pr", "edit", "4", "--add-reviewer", "@copilot"], result()),
+    exact(["gh", "pr", "edit", "4", "--add-reviewer", "@review-bot"], result()),
     exact(
       [
         "gh",
@@ -432,6 +459,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
   const workflow = await runPromptWorkflow("Wait for review comments", {
     shell,
     logger: new TestLogger(),
+    harness: stubHarness(["@review-bot"]),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
     options: {
@@ -607,6 +635,7 @@ test("handles only new actionable review comments and re-requests review after p
   const workflow = await runPromptWorkflow("Implement something bigger", {
     shell,
     logger: new TestLogger(),
+    harness: stubHarness(),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
   });

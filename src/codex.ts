@@ -1,5 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { CODEX_EDIT_MODE_FLAG, CODEX_TEXT_SANDBOX } from "./config";
 import {
@@ -9,12 +8,14 @@ import {
   fallbackPullRequestDraft,
   parseDraftResponse,
 } from "./fallbacks";
+import { createHarnessTempDirectory } from "./harness";
 import type { PullRequestDraft, ReviewComment, ShellRunner } from "./types";
 
 async function withTempOutputFile<T>(
+  stateDir: string,
   callback: (outputFile: string) => Promise<T>,
 ): Promise<{ value: T; output: string }> {
-  const directory = await mkdtemp(join(tmpdir(), "codex-pr-agent-"));
+  const directory = await createHarnessTempDirectory(stateDir);
   const outputFile = join(directory, "last-message.txt");
 
   try {
@@ -30,33 +31,40 @@ async function withTempOutputFile<T>(
 export class CodexClient {
   constructor(private readonly shell: ShellRunner) {}
 
-  async generateBranchName(cwd: string, prompt: string): Promise<string> {
+  async generateBranchName(
+    cwd: string,
+    prompt: string,
+    stateDir: string,
+  ): Promise<string> {
     const fallback = fallbackBranchName(prompt);
 
     try {
-      const { output } = await withTempOutputFile(async (outputFile) => {
-        await this.shell.run({
-          args: [
-            "codex",
-            "exec",
-            "--ephemeral",
-            "--color",
-            "never",
-            "--sandbox",
-            CODEX_TEXT_SANDBOX,
-            "-o",
-            outputFile,
-            [
-              "Return only a git branch name.",
-              "Use the format feature/<kebab-slug>.",
-              "Do not include quotes, code fences, or explanations.",
-              `Prompt: ${prompt}`,
-            ].join("\n"),
-          ],
-          cwd,
-          allowFailure: true,
-        });
-      });
+      const { output } = await withTempOutputFile(
+        stateDir,
+        async (outputFile) => {
+          await this.shell.run({
+            args: [
+              "codex",
+              "exec",
+              "--ephemeral",
+              "--color",
+              "never",
+              "--sandbox",
+              CODEX_TEXT_SANDBOX,
+              "-o",
+              outputFile,
+              [
+                "Return only a git branch name.",
+                "Use the format feature/<kebab-slug>.",
+                "Do not include quotes, code fences, or explanations.",
+                `Prompt: ${prompt}`,
+              ].join("\n"),
+            ],
+            cwd,
+            allowFailure: true,
+          });
+        },
+      );
       const candidate = coerceBranchName(output);
 
       if (candidate.length === 0) {
@@ -101,34 +109,38 @@ export class CodexClient {
     prompt: string,
     stagedDiff: string,
     mode: "implementation" | "review",
+    stateDir: string,
   ): Promise<string> {
     const fallback = fallbackCommitMessage(prompt, mode);
 
     try {
-      const { output } = await withTempOutputFile(async (outputFile) => {
-        await this.shell.run({
-          args: [
-            "codex",
-            "exec",
-            "--ephemeral",
-            "--color",
-            "never",
-            "--sandbox",
-            CODEX_TEXT_SANDBOX,
-            "-o",
-            outputFile,
-            [
-              "Return only a single conventional commit message line.",
-              "Do not include quotes or explanations.",
-              `Mode: ${mode}`,
-              `Original prompt: ${prompt}`,
-              `Staged diff summary: ${stagedDiff || "No diff summary available."}`,
-            ].join("\n"),
-          ],
-          cwd,
-          allowFailure: true,
-        });
-      });
+      const { output } = await withTempOutputFile(
+        stateDir,
+        async (outputFile) => {
+          await this.shell.run({
+            args: [
+              "codex",
+              "exec",
+              "--ephemeral",
+              "--color",
+              "never",
+              "--sandbox",
+              CODEX_TEXT_SANDBOX,
+              "-o",
+              outputFile,
+              [
+                "Return only a single conventional commit message line.",
+                "Do not include quotes or explanations.",
+                `Mode: ${mode}`,
+                `Original prompt: ${prompt}`,
+                `Staged diff summary: ${stagedDiff || "No diff summary available."}`,
+              ].join("\n"),
+            ],
+            cwd,
+            allowFailure: true,
+          });
+        },
+      );
       const candidate = output.trim().split(/\r?\n/, 1)[0]?.trim();
 
       return candidate && candidate.length > 0 ? candidate : fallback;
@@ -143,39 +155,43 @@ export class CodexClient {
     branch: string,
     baseBranch: string,
     branchDiff: string,
+    stateDir: string,
   ): Promise<PullRequestDraft> {
     const fallback = fallbackPullRequestDraft(prompt, branch, baseBranch);
 
     try {
-      const { output } = await withTempOutputFile(async (outputFile) => {
-        await this.shell.run({
-          args: [
-            "codex",
-            "exec",
-            "--ephemeral",
-            "--color",
-            "never",
-            "--sandbox",
-            CODEX_TEXT_SANDBOX,
-            "-o",
-            outputFile,
-            [
-              "Draft a GitHub pull request title and body.",
-              "Respond in exactly this format:",
-              "TITLE: <one line title>",
-              "BODY:",
-              "<markdown body>",
-              "",
-              `Original prompt: ${prompt}`,
-              `Head branch: ${branch}`,
-              `Base branch: ${baseBranch}`,
-              `Diff summary: ${branchDiff || "No diff summary available."}`,
-            ].join("\n"),
-          ],
-          cwd,
-          allowFailure: true,
-        });
-      });
+      const { output } = await withTempOutputFile(
+        stateDir,
+        async (outputFile) => {
+          await this.shell.run({
+            args: [
+              "codex",
+              "exec",
+              "--ephemeral",
+              "--color",
+              "never",
+              "--sandbox",
+              CODEX_TEXT_SANDBOX,
+              "-o",
+              outputFile,
+              [
+                "Draft a GitHub pull request title and body.",
+                "Respond in exactly this format:",
+                "TITLE: <one line title>",
+                "BODY:",
+                "<markdown body>",
+                "",
+                `Original prompt: ${prompt}`,
+                `Head branch: ${branch}`,
+                `Base branch: ${baseBranch}`,
+                `Diff summary: ${branchDiff || "No diff summary available."}`,
+              ].join("\n"),
+            ],
+            cwd,
+            allowFailure: true,
+          });
+        },
+      );
       const parsed = parseDraftResponse(output);
 
       return parsed ?? fallback;

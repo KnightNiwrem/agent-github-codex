@@ -118,21 +118,24 @@ export class GitHubClient {
     };
   }
 
-  async requestCopilotReview(
+  async requestReviewers(
     cwd: string,
     pullRequestNumber: number,
+    reviewers: string[],
   ): Promise<void> {
-    await this.shell.run({
-      args: [
-        "gh",
-        "pr",
-        "edit",
-        String(pullRequestNumber),
-        "--add-reviewer",
-        "@copilot",
-      ],
-      cwd,
-    });
+    for (const reviewer of reviewers) {
+      await this.shell.run({
+        args: [
+          "gh",
+          "pr",
+          "edit",
+          String(pullRequestNumber),
+          "--add-reviewer",
+          reviewer,
+        ],
+        cwd,
+      });
+    }
   }
 
   async listReviewComments(

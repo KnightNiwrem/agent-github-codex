@@ -6,6 +6,8 @@ import {
 import { AppError } from "./errors";
 import { GitClient } from "./git";
 import { GitHubClient } from "./github";
+import type { HarnessWorkspaceState } from "./harness";
+import { FileSystemHarnessWorkspace } from "./harness";
 import type {
   Logger,
   ReviewComment,
@@ -19,6 +21,9 @@ import { sleep as defaultSleep } from "./utils";
 export interface WorkflowDependencies {
   shell: ShellRunner;
   logger: Logger;
+  harness?: {
+    ensure(repoRoot: string): Promise<HarnessWorkspaceState>;
+  };
   sleep?: (ms: number) => Promise<void>;
   reviewPollIntervalMs?: number;
   options?: WorkflowOptions;
@@ -48,11 +53,18 @@ export async function runPromptWorkflow(
   const git = new GitClient(shell);
   const codex = new CodexClient(shell);
   const github = new GitHubClient(shell);
+  const harness = dependencies.harness ?? new FileSystemHarnessWorkspace();
   const startCwd = process.cwd();
   const repoRoot = await git.getRepositoryRoot(startCwd);
+  const harnessState = await harness.ensure(repoRoot);
   const baseBranch = await git.getCurrentBranch(repoRoot);
 
-  logger.info("workflow.start", { repoRoot, baseBranch });
+  logger.info("workflow.start", {
+    repoRoot,
+    baseBranch,
+    agcDir: harnessState.rootDir,
+    reviewers: harnessState.config.pullRequestReviewers.join(","),
+  });
 
   if (!ALLOWED_BASE_BRANCHES.has(baseBranch)) {
     throw new AppError(
@@ -62,7 +74,11 @@ export async function runPromptWorkflow(
 
   await git.ensureCleanWorkspace(repoRoot);
 
-  const branch = await codex.generateBranchName(repoRoot, prompt);
+  const branch = await codex.generateBranchName(
+    repoRoot,
+    prompt,
+    harnessState.stateDir,
+  );
   logger.info("branch.selected", { branch, baseBranch });
 
   await git.createBranch(repoRoot, branch, baseBranch);
@@ -99,6 +115,7 @@ export async function runPromptWorkflow(
     prompt,
     stagedDiff,
     "implementation",
+    harnessState.stateDir,
   );
 
   await git.commit(repoRoot, commitMessage);
@@ -112,6 +129,7 @@ export async function runPromptWorkflow(
     branch,
     baseBranch,
     branchDiff,
+    harnessState.stateDir,
   );
   const pullRequest = await github.createPullRequest(
     repoRoot,
@@ -124,10 +142,14 @@ export async function runPromptWorkflow(
     url: pullRequest.url,
   });
 
-  await github.requestCopilotReview(repoRoot, pullRequest.number);
+  await github.requestReviewers(
+    repoRoot,
+    pullRequest.number,
+    harnessState.config.pullRequestReviewers,
+  );
   logger.info("pr.review_requested", {
     number: pullRequest.number,
-    reviewer: "@copilot",
+    reviewers: harnessState.config.pullRequestReviewers.join(","),
   });
 
   const reviewState: ReviewLoopState = {
@@ -146,6 +168,8 @@ export async function runPromptWorkflow(
     reviewPollIntervalMs,
     maxUnproductivePolls,
     reviewState,
+    stateDir: harnessState.stateDir,
+    reviewers: harnessState.config.pullRequestReviewers,
   });
 
   return {
@@ -170,6 +194,8 @@ interface ReviewLoopArgs {
   reviewPollIntervalMs: number;
   maxUnproductivePolls: number;
   reviewState: ReviewLoopState;
+  stateDir: string;
+  reviewers: string[];
 }
 
 async function runReviewLoop(
@@ -188,6 +214,8 @@ async function runReviewLoop(
     reviewPollIntervalMs,
     maxUnproductivePolls,
     reviewState,
+    stateDir,
+    reviewers,
   } = args;
   let consecutiveUnproductivePolls = 0;
 
@@ -247,6 +275,7 @@ async function runReviewLoop(
       prompt,
       stagedDiff,
       "review",
+      stateDir,
     );
     await git.commit(repoRoot, commitMessage);
     await git.push(repoRoot, branch);
@@ -256,10 +285,10 @@ async function runReviewLoop(
       commitMessage,
     });
 
-    await github.requestCopilotReview(repoRoot, pullRequestNumber);
+    await github.requestReviewers(repoRoot, pullRequestNumber, reviewers);
     logger.info("review.re_requested", {
       pullRequestNumber,
-      reviewer: "@copilot",
+      reviewers: reviewers.join(","),
     });
   }
 }

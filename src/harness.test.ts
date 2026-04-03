@@ -1,0 +1,57 @@
+import { afterEach, expect, test } from "bun:test";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { FileSystemHarnessWorkspace } from "./harness";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true })),
+  );
+});
+
+async function createRepositoryRoot(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "agc-harness-test-"));
+  temporaryDirectories.push(root);
+  await mkdir(join(root, ".git", "info"), { recursive: true });
+  return root;
+}
+
+test("creates a default .agc layout and ignores it via git exclude", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+
+  const state = await workspace.ensure(repoRoot);
+
+  expect(state.rootDir).toBe(join(repoRoot, ".agc"));
+  expect(state.stateDir).toBe(join(repoRoot, ".agc", "state"));
+  expect(state.config.pullRequestReviewers).toEqual(["@copilot"]);
+  expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
+    pullRequestReviewers: ["@copilot"],
+  });
+  expect(await readFile(state.gitExcludeFile, "utf8")).toContain("/.agc/");
+});
+
+test("reuses existing .agc reviewer configuration", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await Bun.write(
+    configFile,
+    `${JSON.stringify({ pullRequestReviewers: ["@review-bot", "@copilot"] }, null, 2)}\n`,
+  );
+  await writeFile(join(repoRoot, ".git", "info", "exclude"), "*.log\n", "utf8");
+
+  const state = await workspace.ensure(repoRoot);
+
+  expect(state.config.pullRequestReviewers).toEqual([
+    "@review-bot",
+    "@copilot",
+  ]);
+  expect(await readFile(state.gitExcludeFile, "utf8")).toContain("/.agc/");
+});
