@@ -21,8 +21,14 @@ const DEFAULT_CONFIG: HarnessConfig = {
 
 const AGC_EXCLUDE_ENTRY = "/.agc/";
 const harnessConfigSchema = z.object({
-  pullRequestReviewers: z.array(z.string().trim()).min(1),
+  pullRequestReviewers: z.array(z.string().trim().min(1)).min(1),
 });
+
+function cloneDefaultConfig(): HarnessConfig {
+  return {
+    pullRequestReviewers: [...DEFAULT_CONFIG.pullRequestReviewers],
+  };
+}
 
 function defaultLayout(repoRoot: string): HarnessLayout {
   return {
@@ -42,18 +48,8 @@ function normalizeConfig(value: unknown): HarnessConfig {
     );
   }
 
-  const normalizedReviewers = parsed.data.pullRequestReviewers.filter(
-    (reviewer) => reviewer.length > 0,
-  );
-
-  if (normalizedReviewers.length === 0) {
-    throw new AppError(
-      "Invalid .agc/config.json: pullRequestReviewers must include at least one reviewer.",
-    );
-  }
-
   return {
-    pullRequestReviewers: [...new Set(normalizedReviewers)],
+    pullRequestReviewers: [...new Set(parsed.data.pullRequestReviewers)],
   };
 }
 
@@ -87,7 +83,7 @@ async function ensureConfigFile(path: string): Promise<HarnessConfig> {
       `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`,
       "utf8",
     );
-    return DEFAULT_CONFIG;
+    return cloneDefaultConfig();
   }
 
   let parsed: unknown;

@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from "bun:test";
-import { writeFile } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,7 @@ import { runPromptWorkflow } from "./workflow";
 
 const testFileDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(testFileDirectory, "..");
-const harnessStateRoot = join(tmpdir(), "agc-workflow-tests");
+const temporaryDirectories: string[] = [];
 
 interface Step {
   match(args: string[]): boolean;
@@ -129,20 +129,33 @@ function stubHarness(reviewers: string[] = ["@copilot"]): {
   ensure: (repoRoot: string) => Promise<HarnessWorkspaceState>;
 } {
   return {
-    ensure: async (repoRoot: string) => ({
-      rootDir: join(repoRoot, ".agc"),
-      stateDir: join(harnessStateRoot, "state"),
-      configFile: join(repoRoot, ".agc", "config.json"),
-      gitExcludeFile: join(repoRoot, ".git", "info", "exclude"),
-      config: {
-        pullRequestReviewers: reviewers,
-      },
-    }),
+    ensure: async (repoRoot: string) => {
+      const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
+      temporaryDirectories.push(stateDir);
+
+      return {
+        rootDir: join(repoRoot, ".agc"),
+        stateDir,
+        configFile: join(repoRoot, ".agc", "config.json"),
+        gitExcludeFile: join(repoRoot, ".git", "info", "exclude"),
+        config: {
+          pullRequestReviewers: reviewers,
+        },
+      };
+    },
   };
 }
 
 beforeEach(() => {
   process.chdir(repositoryRoot);
+});
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 describe("workflow guards", () => {
@@ -198,10 +211,12 @@ test("feature branch naming falls back deterministically", async () => {
     codexOutputContains("Return only a git branch name.", ""),
   ]);
   const client = new CodexClient(shell);
+  const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
+  temporaryDirectories.push(stateDir);
   const branch = await client.generateBranchName(
     "/repo",
     "Add logging to CLI",
-    join(harnessStateRoot, "state"),
+    stateDir,
   );
 
   expect(branch).toMatch(/^feature\/add-logging-to-cli-[a-f0-9]{6}$/);

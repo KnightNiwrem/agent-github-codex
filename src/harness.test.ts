@@ -73,3 +73,19 @@ test("rejects non-string reviewer values in .agc config", async () => {
     /Invalid \.agc\/config\.json:.*expected string, received object/s,
   );
 });
+
+test("rejects blank reviewer values in .agc config", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify({ pullRequestReviewers: ["   "] }, null, 2)}\n`,
+  );
+
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*Too small: expected string to have >=1 characters/s,
+  );
+});
