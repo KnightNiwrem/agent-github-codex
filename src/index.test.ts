@@ -121,6 +121,7 @@ describe("runAgentLoop", () => {
       feedbackBatches: [
         [
           {
+            id: "review-comment-1",
             author: "copilot-pull-request-reviewer[bot]",
             body: "Please add a stricter guard around branch creation.",
             createdAt: "2026-04-03T00:10:00.000Z",
@@ -156,7 +157,7 @@ describe("runAgentLoop", () => {
       "feature/implement-the-deterministic-pr-review-harness",
       "feature/implement-the-deterministic-pr-review-harness",
     ]);
-    expect(dependencies.state.requestedReviews).toEqual([12]);
+    expect(dependencies.state.requestedReviews).toEqual([12, 12]);
     expect(dependencies.state.codexResumePrompts[0]).toContain(
       "Please add a stricter guard around branch creation.",
     );
@@ -190,6 +191,7 @@ describe("runAgentLoop", () => {
       feedbackBatches: [
         [
           {
+            id: "review-1",
             author: "copilot-pull-request-reviewer[bot]",
             body: "Nit: this is already handled.",
             createdAt: "2026-04-03T00:10:00.000Z",
@@ -209,6 +211,6 @@ describe("runAgentLoop", () => {
     expect(result.commitsCreated).toBe(1);
     expect(result.reviewCycles).toBe(1);
     expect(dependencies.state.commits).toEqual(["feat: Implement the loop"]);
-    expect(dependencies.state.requestedReviews).toEqual([]);
+    expect(dependencies.state.requestedReviews).toEqual([12]);
   });
 });

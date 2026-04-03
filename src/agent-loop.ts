@@ -1,4 +1,5 @@
 export interface ReviewFeedback {
+  id: string;
   author: string;
   body: string;
   createdAt: string;
@@ -147,6 +148,17 @@ const latestTimestamp = (
   return latest;
 };
 
+const buildPollingCursor = (timestamp: string): string => {
+  const parsed = Date.parse(timestamp);
+
+  if (!Number.isFinite(parsed)) {
+    return new Date(0).toISOString();
+  }
+
+  const normalized = Math.floor(parsed / 1000) * 1000;
+  return new Date(Math.max(0, normalized - 1000)).toISOString();
+};
+
 const sleepDurationMinutesToMilliseconds = (minutes: number): number =>
   Math.round(minutes * 60_000);
 
@@ -178,6 +190,10 @@ export const runAgentLoop = async (
     reviewWaitMinutes,
     sleep,
   } = options;
+
+  if (!Number.isFinite(reviewWaitMinutes) || reviewWaitMinutes <= 0) {
+    throw new Error("reviewWaitMinutes must be a positive finite number");
+  }
 
   await git.ensureCleanWorktree();
 
@@ -221,7 +237,12 @@ export const runAgentLoop = async (
   let commitsCreated = 1;
   let reviewCycles = 0;
   let lastSeenFeedbackAt = new Date().toISOString();
+  const seenFeedbackIds = new Set<string>();
   const authenticatedLogin = await github.getAuthenticatedLogin();
+
+  logger.info("Requesting the initial Copilot review");
+  await github.requestCopilotReview(pullRequest.number);
+  lastSeenFeedbackAt = new Date().toISOString();
 
   while (true) {
     logger.info(
@@ -229,15 +250,21 @@ export const runAgentLoop = async (
     );
     await sleep(sleepDurationMinutesToMilliseconds(reviewWaitMinutes));
 
-    const feedback = await github.getNewReviewFeedback({
-      prNumber: pullRequest.number,
-      since: lastSeenFeedbackAt,
-      skipAuthor: authenticatedLogin ?? undefined,
-    });
+    const feedback = (
+      await github.getNewReviewFeedback({
+        prNumber: pullRequest.number,
+        since: buildPollingCursor(lastSeenFeedbackAt),
+        skipAuthor: authenticatedLogin ?? undefined,
+      })
+    ).filter((item) => !seenFeedbackIds.has(item.id));
 
     if (feedback.length === 0) {
       logger.info("No new automated review feedback was found");
       break;
+    }
+
+    for (const item of feedback) {
+      seenFeedbackIds.add(item.id);
     }
 
     lastSeenFeedbackAt = latestTimestamp(feedback, lastSeenFeedbackAt);

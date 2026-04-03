@@ -111,6 +111,14 @@ interface GitHubReviewComment {
   };
 }
 
+const parseJsonSafe = <T>(json: string, fallback: T): T => {
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    return fallback;
+  }
+};
+
 export class BunGitClient implements AgentLoopGitClient {
   constructor(private readonly runner: BashRunner) {}
 
@@ -290,15 +298,17 @@ export class BunGitHubClient implements AgentLoopGitHubClient {
     const sinceTime = Date.parse(input.since);
     const feedback: ReviewFeedback[] = [];
 
-    for (const comment of JSON.parse(
+    for (const comment of parseJsonSafe<GitHubIssueComment[]>(
       issueComments.stdout,
-    ) as GitHubIssueComment[]) {
+      [],
+    )) {
       if (
         Date.parse(comment.created_at) > sinceTime &&
         comment.body.trim() &&
         comment.user.login !== input.skipAuthor
       ) {
         feedback.push({
+          id: String(comment.id),
           author: comment.user.login,
           body: comment.body,
           createdAt: comment.created_at,
@@ -308,7 +318,7 @@ export class BunGitHubClient implements AgentLoopGitHubClient {
       }
     }
 
-    for (const review of JSON.parse(reviews.stdout) as GitHubReview[]) {
+    for (const review of parseJsonSafe<GitHubReview[]>(reviews.stdout, [])) {
       if (
         review.submitted_at &&
         Date.parse(review.submitted_at) > sinceTime &&
@@ -318,6 +328,7 @@ export class BunGitHubClient implements AgentLoopGitHubClient {
 
         if (body) {
           feedback.push({
+            id: String(review.id),
             author: review.user.login,
             body,
             createdAt: review.submitted_at,
@@ -328,15 +339,17 @@ export class BunGitHubClient implements AgentLoopGitHubClient {
       }
     }
 
-    for (const comment of JSON.parse(
+    for (const comment of parseJsonSafe<GitHubReviewComment[]>(
       reviewComments.stdout,
-    ) as GitHubReviewComment[]) {
+      [],
+    )) {
       if (
         Date.parse(comment.created_at) > sinceTime &&
         comment.body.trim() &&
         comment.user.login !== input.skipAuthor
       ) {
         feedback.push({
+          id: String(comment.id),
           author: comment.user.login,
           body: comment.body,
           createdAt: comment.created_at,
@@ -357,10 +370,10 @@ export class BunGitHubClient implements AgentLoopGitHubClient {
     await this.runner.run([
       "gh",
       "pr",
-      "comment",
+      "edit",
       String(prNumber),
-      "--body",
-      "@copilot review",
+      "--add-reviewer",
+      "@copilot",
     ]);
   }
 
