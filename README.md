@@ -108,7 +108,7 @@ The harness creates and manages this layout:
 
 `state/` is reserved for transient harness runtime files such as Codex output scratch directories.
 
-To keep arbitrary repositories clean, the CLI adds `/.agc/` to Git's per-repository exclude file, resolved via `git rev-parse --git-path info/exclude`, and does not mutate tracked `.gitignore` files. That means `.agc/` stays untracked by default, while still living at a predictable repository-local path. If a repository intentionally wants to commit `.agc/`, it can remove that exclude entry and manage ignore rules itself.
+To keep arbitrary repositories clean, the CLI adds `/.agc/` to Git's per-repository exclude file, resolved via `git rev-parse --git-path info/exclude`, and does not mutate tracked `.gitignore` files. That means `.agc/` stays untracked by default, while still living at a predictable repository-local path. The workflow also treats pre-existing `.agc/` files as harness-owned state during cleanliness checks, so stale local harness state does not block a run before the exclude entry is refreshed. If a repository intentionally wants to commit `.agc/`, it can remove that exclude entry and manage ignore rules itself.
 
 ## Workflow
 
@@ -117,7 +117,7 @@ Given a single prompt argument, the CLI runs this sequence:
 1. Resolve the current repository root with `git rev-parse --show-toplevel`.
 2. Read the current branch with `git rev-parse --abbrev-ref HEAD`.
 3. Refuse to continue unless the branch is `main` or `master`.
-4. Refuse to continue unless `git status --porcelain` is empty.
+4. Refuse to continue unless `git status --porcelain` shows no changes outside `.agc/`.
 5. Resolve Git's per-repository exclude file with `git rev-parse --git-path info/exclude`.
 6. Ensure `.agc/` exists, create `.agc/config.json` if missing, and add `/.agc/` to that exclude file.
 7. Ask Codex for a feature-branch name using `codex exec` in read-only mode.
@@ -171,7 +171,7 @@ If Codex helper calls fail for those bounded text tasks, the workflow still proc
 The CLI exits non-zero when:
 
 - the current branch is not `main` or `master`
-- the workspace is dirty before the run starts
+- the workspace is dirty before the run starts, excluding harness-owned `.agc/` state
 - `git`, `gh`, or `codex` commands fail
 - `.agc/config.json` is invalid
 - branch creation fails

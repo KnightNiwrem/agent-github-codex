@@ -163,6 +163,7 @@ afterEach(async () => {
 
 describe("workflow guards", () => {
   test("fails on dirty workspace", async () => {
+    let harnessEnsureCalls = 0;
     const shell = new SequenceShellRunner([
       exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
       exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -173,13 +174,22 @@ describe("workflow guards", () => {
       runPromptWorkflow("update docs", {
         shell,
         logger: new TestLogger(),
-        harness: stubHarness(),
+        harness: {
+          ensure: async () => {
+            harnessEnsureCalls += 1;
+            return await stubHarness().ensure(
+              "/repo",
+              "/repo/.git/info/exclude",
+            );
+          },
+        },
         sleep: async () => undefined,
       }),
     ).rejects.toThrow(
       new AppError("Workspace must be clean before running this CLI."),
     );
 
+    expect(harnessEnsureCalls).toBe(0);
     shell.assertComplete();
   });
 
@@ -205,6 +215,41 @@ describe("workflow guards", () => {
       ),
     );
 
+    shell.assertComplete();
+  });
+
+  test("ignores existing .agc files when evaluating workspace cleanliness", async () => {
+    const shell = new SequenceShellRunner([
+      exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
+      exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
+      exact(
+        ["git", "status", "--porcelain"],
+        result("?? .agc/config.json\n?? .agc/state/session.log\n"),
+      ),
+      exact(
+        ["git", "rev-parse", "--git-path", "info/exclude"],
+        result("/repo/.git/info/exclude\n"),
+      ),
+      codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
+      exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
+      exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
+      codexEditContains("Implement the requested change in this repository."),
+      exact(
+        ["git", "status", "--porcelain"],
+        result("?? .agc/state/session.log\n"),
+      ),
+      exact(["git", "checkout", "main"], result()),
+    ]);
+
+    const workflow = await runPromptWorkflow("No-op request", {
+      shell,
+      logger: new TestLogger(),
+      harness: stubHarness(),
+      sleep: async () => undefined,
+    });
+
+    expect(workflow.committed).toBe(false);
+    expect(workflow.reviewLoopReason).toBe("no_initial_changes");
     shell.assertComplete();
   });
 });

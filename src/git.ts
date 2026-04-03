@@ -2,6 +2,36 @@ import { isAbsolute, resolve } from "node:path";
 import { AppError } from "./errors";
 import type { ShellRunner } from "./types";
 
+const HARNESS_ROOT = ".agc";
+
+function normalizeStatusPath(path: string): string {
+  return path.trim().replace(/^"+|"+$/g, "");
+}
+
+function isHarnessPath(path: string): boolean {
+  const normalized = normalizeStatusPath(path);
+  return (
+    normalized === HARNESS_ROOT || normalized.startsWith(`${HARNESS_ROOT}/`)
+  );
+}
+
+function hasNonHarnessChanges(stdout: string): boolean {
+  return stdout
+    .split(/\r?\n/)
+    .map((entry) => entry.trimEnd())
+    .filter((entry) => entry.length > 0)
+    .some((entry) => {
+      const paths = entry
+        .slice(3)
+        .trim()
+        .split(" -> ")
+        .map((path) => path.trim())
+        .filter((path) => path.length > 0);
+
+      return paths.some((path) => !isHarnessPath(path));
+    });
+}
+
 export class GitClient {
   constructor(private readonly shell: ShellRunner) {}
 
@@ -40,7 +70,7 @@ export class GitClient {
       cwd,
     });
 
-    if (result.stdout.trim().length > 0) {
+    if (hasNonHarnessChanges(result.stdout)) {
       throw new AppError("Workspace must be clean before running this CLI.");
     }
   }
@@ -69,7 +99,7 @@ export class GitClient {
       cwd,
     });
 
-    return result.stdout.trim().length > 0;
+    return hasNonHarnessChanges(result.stdout);
   }
 
   async stageAll(cwd: string): Promise<void> {
