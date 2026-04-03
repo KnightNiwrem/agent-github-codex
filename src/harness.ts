@@ -4,6 +4,12 @@ import { z } from "zod";
 import { AppError } from "./errors";
 import type { HarnessConfig } from "./types";
 
+interface HarnessFileSystem {
+  mkdir: typeof mkdir;
+  readFile: typeof readFile;
+  writeFile: typeof writeFile;
+}
+
 export interface HarnessLayout {
   rootDir: string;
   stateDir: string;
@@ -36,6 +42,10 @@ function defaultLayout(repoRoot: string): HarnessLayout {
   };
 }
 
+function isMissingFileError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
 function normalizeConfig(value: unknown): HarnessConfig {
   const parsed = harnessConfigSchema.safeParse(value);
 
@@ -50,11 +60,24 @@ function normalizeConfig(value: unknown): HarnessConfig {
   };
 }
 
-async function ensureConfigFile(path: string): Promise<HarnessConfig> {
-  const existing = await readFile(path, "utf8").catch(() => null);
+async function ensureConfigFile(
+  path: string,
+  fileSystem: Pick<HarnessFileSystem, "readFile" | "writeFile">,
+): Promise<HarnessConfig> {
+  let existing: string | null;
+
+  try {
+    existing = await fileSystem.readFile(path, "utf8");
+  } catch (error) {
+    if (!isMissingFileError(error)) {
+      throw error;
+    }
+
+    existing = null;
+  }
 
   if (existing === null) {
-    await writeFile(
+    await fileSystem.writeFile(
       path,
       `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`,
       "utf8",
@@ -83,11 +106,19 @@ export async function createHarnessTempDirectory(
 }
 
 export class FileSystemHarnessWorkspace {
+  constructor(
+    private readonly fileSystem: HarnessFileSystem = {
+      mkdir,
+      readFile,
+      writeFile,
+    },
+  ) {}
+
   async ensure(repoRoot: string): Promise<HarnessWorkspaceState> {
     const layout = defaultLayout(repoRoot);
 
-    await mkdir(layout.stateDir, { recursive: true });
-    const config = await ensureConfigFile(layout.configFile);
+    await this.fileSystem.mkdir(layout.stateDir, { recursive: true });
+    const config = await ensureConfigFile(layout.configFile, this.fileSystem);
 
     return {
       ...layout,

@@ -85,3 +85,23 @@ test("rejects blank reviewer values in .agc config", async () => {
     /Invalid \.agc\/config\.json:.*Too small: expected string to have >=1 characters/s,
   );
 });
+
+test("surfaces non-ENOENT config read failures", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const readError = Object.assign(new Error("permission denied"), {
+    code: "EACCES",
+  });
+  let writeAttempted = false;
+  const workspace = new FileSystemHarnessWorkspace({
+    mkdir,
+    readFile: async () => {
+      throw readError;
+    },
+    writeFile: async () => {
+      writeAttempted = true;
+    },
+  });
+
+  await expect(workspace.ensure(repoRoot)).rejects.toBe(readError);
+  expect(writeAttempted).toBeFalse();
+});
