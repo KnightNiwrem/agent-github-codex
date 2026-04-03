@@ -9,6 +9,9 @@ export function clip(value: string, maxLength: number): string {
     return value;
   }
 
+  if (maxLength < 3) {
+    return value.slice(0, Math.max(0, maxLength));
+  }
   return `${value.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
