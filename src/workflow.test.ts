@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CodexClient } from "./codex";
 import { AppError } from "./errors";
 import { ConsoleLogger } from "./logger";
 import type { CommandResult, CommandSpec, Logger, ShellRunner } from "./types";
 import { runPromptWorkflow } from "./workflow";
+
+const testFileDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(testFileDirectory, "..");
 
 interface Step {
   match(args: string[]): boolean;
@@ -118,7 +123,7 @@ class TestLogger implements Logger {
 }
 
 beforeEach(() => {
-  process.chdir("/home/niwrem/agent-github-codex");
+  process.chdir(repositoryRoot);
 });
 
 describe("workflow guards", () => {
