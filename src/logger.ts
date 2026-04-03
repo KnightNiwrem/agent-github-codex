@@ -6,10 +6,10 @@ function emit(
   fields?: LogFields,
 ): void {
   const payload = {
+    ...fields,
     timestamp: new Date().toISOString(),
     level,
     event,
-    ...fields,
   };
 
   const line = JSON.stringify(payload);
