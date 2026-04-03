@@ -54,13 +54,21 @@ Run locally from this repository:
 bun start -- "implement the requested change"
 ```
 
-Control how long the review loop tolerates polls with no new actionable comments:
+## CLI Options
+
+The CLI currently accepts the required prompt argument plus an optional review-loop control flag:
 
 ```bash
 deer-agent --max-unproductive-polls 3 "implement the requested change"
 ```
 
-Use `0` to allow unlimited polling.
+`--max-unproductive-polls` controls how many consecutive review polls with no new actionable comments are allowed before the process exits.
+
+- default: `1`
+- `0`: poll indefinitely
+- any positive integer: exit after that many consecutive no-op polls
+
+An "unproductive poll" means the review loop fetched PR review comments and found no new actionable top-level comments that had not already been handled in the current run.
 
 ## Expected Auth And Setup
 
@@ -112,7 +120,7 @@ gh api --paginate --slurp repos/{owner}/{repo}/pulls/<number>/comments
 ```
 
 3. Ignore reply comments and ignore comment IDs that were already processed earlier in the same run.
-4. If there are no new actionable top-level review comments, exit cleanly.
+4. Track consecutive no-op polls and exit once the configured `--max-unproductive-polls` threshold is reached.
 5. Send only the new actionable comment set to `codex exec` for validation and fixes.
 6. If Codex produces no file changes, exit cleanly.
 7. If Codex does produce changes, stage, commit, and push them.
@@ -120,6 +128,10 @@ gh api --paginate --slurp repos/{owner}/{repo}/pulls/<number>/comments
 9. Repeat the loop.
 
 This prevents the tool from reprocessing the same review comments forever.
+
+## Planned Local Config
+
+Repository-local harness config/state standardization is planned in a future iteration. The current direction is to use a `.agc/` directory for this tool's own configuration and state, including reviewer allowlists and other harness-specific values.
 
 ## Deterministic Fallbacks
 
