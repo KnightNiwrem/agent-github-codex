@@ -125,6 +125,9 @@ dist
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# Local Codex session state
+.codex/
+
 # yarn v2
 .yarn/cache
 .yarn/unplugged
