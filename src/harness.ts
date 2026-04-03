@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: HarnessConfig = {
 
 const harnessConfigSchema = z.object({
   pullRequestReviewers: z.array(z.string().trim().min(1)).min(1),
-  trustedReviewCommenters: z.array(z.string().trim().min(1)),
+  trustedReviewCommenters: z.array(z.string().trim().min(1)).min(1),
 });
 
 function cloneDefaultConfig(): HarnessConfig {

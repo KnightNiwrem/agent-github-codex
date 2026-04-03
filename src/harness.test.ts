@@ -115,6 +115,29 @@ test("rejects blank reviewer values in .agc config", async () => {
   );
 });
 
+test("rejects an empty trusted review commenter allowlist", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify(
+      {
+        pullRequestReviewers: ["@copilot"],
+        trustedReviewCommenters: [],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*expected array to have >=1 items/s,
+  );
+});
+
 test("surfaces non-ENOENT config read failures", async () => {
   const repoRoot = await createRepositoryRoot();
   const readError = Object.assign(new Error("permission denied"), {

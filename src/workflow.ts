@@ -50,11 +50,18 @@ function normalizeReviewerIdentity(
   return normalized.length > 0 ? normalized : null;
 }
 
-function trustedReviewCommentSet(reviewers: string[]): Set<string> {
+function trustedReviewCommenterSet(
+  trustedReviewCommenters: string[],
+): Set<string> {
   return new Set(
-    reviewers
-      .map((reviewer) => normalizeReviewerIdentity(reviewer))
-      .filter((reviewer): reviewer is string => reviewer !== null),
+    trustedReviewCommenters
+      .map((trustedReviewCommenter) =>
+        normalizeReviewerIdentity(trustedReviewCommenter),
+      )
+      .filter(
+        (trustedReviewCommenter): trustedReviewCommenter is string =>
+          trustedReviewCommenter !== null,
+      ),
   );
 }
 
@@ -241,7 +248,7 @@ async function runReviewLoop(
     trustedReviewCommenters,
   } = args;
   let consecutiveUnproductivePolls = 0;
-  const trustedCommenters = trustedReviewCommentSet(trustedReviewCommenters);
+  const trustedCommenters = trustedReviewCommenterSet(trustedReviewCommenters);
 
   while (true) {
     logger.info("review.waiting", { pullRequestNumber, reviewPollIntervalMs });
@@ -256,15 +263,15 @@ async function runReviewLoop(
       reviewState.seenCommentIds,
       reviewState.ignoredCommentIds,
     );
-    const trustedComments = actionable.filter((comment) => {
+    const trustedComments: ReviewComment[] = [];
+    for (const comment of actionable) {
       const commentAuthor = normalizeReviewerIdentity(comment.userLogin);
-      return commentAuthor !== null && trustedCommenters.has(commentAuthor);
-    });
-    const ignoredComments = actionable.filter(
-      (comment) => !trustedComments.includes(comment),
-    );
 
-    for (const comment of ignoredComments) {
+      if (commentAuthor !== null && trustedCommenters.has(commentAuthor)) {
+        trustedComments.push(comment);
+        continue;
+      }
+
       reviewState.ignoredCommentIds.add(comment.id);
       logger.warn("review.comment_ignored_untrusted_reviewer", {
         pullRequestNumber,
