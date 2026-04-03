@@ -22,7 +22,10 @@ export interface WorkflowDependencies {
   shell: ShellRunner;
   logger: Logger;
   harness?: {
-    ensure(repoRoot: string): Promise<HarnessWorkspaceState>;
+    ensure(
+      repoRoot: string,
+      gitExcludeFile: string,
+    ): Promise<HarnessWorkspaceState>;
   };
   sleep?: (ms: number) => Promise<void>;
   reviewPollIntervalMs?: number;
@@ -56,15 +59,7 @@ export async function runPromptWorkflow(
   const harness = dependencies.harness ?? new FileSystemHarnessWorkspace();
   const startCwd = process.cwd();
   const repoRoot = await git.getRepositoryRoot(startCwd);
-  const harnessState = await harness.ensure(repoRoot);
   const baseBranch = await git.getCurrentBranch(repoRoot);
-
-  logger.info("workflow.start", {
-    repoRoot,
-    baseBranch,
-    agcDir: harnessState.rootDir,
-    reviewers: harnessState.config.pullRequestReviewers.join(","),
-  });
 
   if (!ALLOWED_BASE_BRANCHES.has(baseBranch)) {
     throw new AppError(
@@ -73,6 +68,16 @@ export async function runPromptWorkflow(
   }
 
   await git.ensureCleanWorkspace(repoRoot);
+  const gitExcludeFile = await git.getGitPath(repoRoot, "info/exclude");
+  const harnessState = await harness.ensure(repoRoot, gitExcludeFile);
+
+  logger.info("workflow.start", {
+    repoRoot,
+    baseBranch,
+    agcDir: harnessState.rootDir,
+    reviewers: harnessState.config.pullRequestReviewers.join(","),
+    gitExcludeFile: harnessState.gitExcludeFile,
+  });
 
   const branch = await codex.generateBranchName(
     repoRoot,

@@ -8,10 +8,10 @@ export interface HarnessLayout {
   rootDir: string;
   stateDir: string;
   configFile: string;
-  gitExcludeFile: string;
 }
 
 export interface HarnessWorkspaceState extends HarnessLayout {
+  gitExcludeFile: string;
   config: HarnessConfig;
 }
 
@@ -35,7 +35,6 @@ function defaultLayout(repoRoot: string): HarnessLayout {
     rootDir: join(repoRoot, ".agc"),
     stateDir: join(repoRoot, ".agc", "state"),
     configFile: join(repoRoot, ".agc", "config.json"),
-    gitExcludeFile: join(repoRoot, ".git", "info", "exclude"),
   };
 }
 
@@ -107,15 +106,19 @@ export async function createHarnessTempDirectory(
 }
 
 export class FileSystemHarnessWorkspace {
-  async ensure(repoRoot: string): Promise<HarnessWorkspaceState> {
+  async ensure(
+    repoRoot: string,
+    gitExcludeFile: string,
+  ): Promise<HarnessWorkspaceState> {
     const layout = defaultLayout(repoRoot);
 
     await mkdir(layout.stateDir, { recursive: true });
-    await ensureGitExcludeEntry(layout.gitExcludeFile);
+    await ensureGitExcludeEntry(gitExcludeFile);
     const config = await ensureConfigFile(layout.configFile);
 
     return {
       ...layout,
+      gitExcludeFile,
       config,
     };
   }

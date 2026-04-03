@@ -25,8 +25,9 @@ async function createRepositoryRoot(): Promise<string> {
 test("creates a default .agc layout and ignores it via git exclude", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
+  const gitExcludeFile = join(repoRoot, ".git", "info", "exclude");
 
-  const state = await workspace.ensure(repoRoot);
+  const state = await workspace.ensure(repoRoot, gitExcludeFile);
 
   expect(state.rootDir).toBe(join(repoRoot, ".agc"));
   expect(state.stateDir).toBe(join(repoRoot, ".agc", "state"));
@@ -34,34 +35,36 @@ test("creates a default .agc layout and ignores it via git exclude", async () =>
   expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
     pullRequestReviewers: ["@copilot"],
   });
-  expect(await readFile(state.gitExcludeFile, "utf8")).toContain("/.agc/");
+  expect(await readFile(gitExcludeFile, "utf8")).toContain("/.agc/");
 });
 
 test("reuses existing .agc reviewer configuration", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
+  const gitExcludeFile = join(repoRoot, ".git", "info", "exclude");
 
   await mkdir(join(repoRoot, ".agc"), { recursive: true });
   await Bun.write(
     configFile,
     `${JSON.stringify({ pullRequestReviewers: ["@review-bot", "@copilot"] }, null, 2)}\n`,
   );
-  await writeFile(join(repoRoot, ".git", "info", "exclude"), "*.log\n", "utf8");
+  await writeFile(gitExcludeFile, "*.log\n", "utf8");
 
-  const state = await workspace.ensure(repoRoot);
+  const state = await workspace.ensure(repoRoot, gitExcludeFile);
 
   expect(state.config.pullRequestReviewers).toEqual([
     "@review-bot",
     "@copilot",
   ]);
-  expect(await readFile(state.gitExcludeFile, "utf8")).toContain("/.agc/");
+  expect(await readFile(gitExcludeFile, "utf8")).toContain("/.agc/");
 });
 
 test("rejects non-string reviewer values in .agc config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
+  const gitExcludeFile = join(repoRoot, ".git", "info", "exclude");
 
   await mkdir(join(repoRoot, ".agc"), { recursive: true });
   await Bun.write(
@@ -69,7 +72,7 @@ test("rejects non-string reviewer values in .agc config", async () => {
     `${JSON.stringify({ pullRequestReviewers: ["@copilot", { login: "@review-bot" }] }, null, 2)}\n`,
   );
 
-  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+  await expect(workspace.ensure(repoRoot, gitExcludeFile)).rejects.toThrow(
     /Invalid \.agc\/config\.json:.*expected string, received object/s,
   );
 });
@@ -78,6 +81,7 @@ test("rejects blank reviewer values in .agc config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
+  const gitExcludeFile = join(repoRoot, ".git", "info", "exclude");
 
   await mkdir(join(repoRoot, ".agc"), { recursive: true });
   await Bun.write(
@@ -85,7 +89,7 @@ test("rejects blank reviewer values in .agc config", async () => {
     `${JSON.stringify({ pullRequestReviewers: ["   "] }, null, 2)}\n`,
   );
 
-  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+  await expect(workspace.ensure(repoRoot, gitExcludeFile)).rejects.toThrow(
     /Invalid \.agc\/config\.json:.*Too small: expected string to have >=1 characters/s,
   );
 });

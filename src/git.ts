@@ -22,6 +22,15 @@ export class GitClient {
     return result.stdout.trim();
   }
 
+  async getGitPath(cwd: string, path: string): Promise<string> {
+    const result = await this.shell.run({
+      args: ["git", "rev-parse", "--git-path", path],
+      cwd,
+    });
+
+    return result.stdout.trim();
+  }
+
   async ensureCleanWorkspace(cwd: string): Promise<void> {
     const result = await this.shell.run({
       args: ["git", "status", "--porcelain"],
