@@ -21,10 +21,13 @@
 ## Development Workflow
 1. Inspect the nearest `AGENTS.md` plus task instructions before editing; clarify unknowns before changing files.
 2. When asked to plan or brainstorm, outline the approach in conversation first; begin coding only after the plan is acknowledged.
-3. Favor small, reviewable diffs scoped to the feature or fix. Add or update tests alongside behavioral changes.
-4. Run `bun run check`, `bun typecheck`, and `bun test` before completion. Capture command output for review summaries when relevant.
-5. For remote dependency updates, note the rationale and relevant changelog entries in commit/PR descriptions.
-6. Prefer scripted workflows (npm-style scripts, `docker compose`, or Make targets) over ad-hoc commands to preserve reproducibility.
+3. Check the project version in `package.json` before making compatibility decisions.
+4. If the major version is `0`, treat the project as unstable: backward compatibility is not required, and legacy compatibility code should be avoided to keep the codebase lean until the project is stable.
+5. If the major version is `1` or higher, evaluate whether the requested change needs backward compatibility and document any intentional compatibility breaks.
+6. Favor small, reviewable diffs scoped to the feature or fix. Add or update tests alongside behavioral changes.
+7. Run `bun run check`, `bun typecheck`, and `bun test` before completion. Capture command output for review summaries when relevant.
+8. For remote dependency updates, note the rationale and relevant changelog entries in commit/PR descriptions.
+9. Prefer scripted workflows (npm-style scripts, `docker compose`, or Make targets) over ad-hoc commands to preserve reproducibility.
 
 ## Architecture & Conventions
 - Organize source under `src/` and keep modules ES-module compatible. Reuse shared utilities thoughtfully.
