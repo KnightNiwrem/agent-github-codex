@@ -108,7 +108,13 @@ The harness creates and manages this layout:
 
 `state/` is reserved for transient harness runtime files such as Codex output scratch directories.
 
-To keep arbitrary repositories clean, the CLI adds `/.agc/` to Git's per-repository exclude file, resolved via `git rev-parse --git-path info/exclude`, and does not mutate tracked `.gitignore` files. That means `.agc/` stays untracked by default, while still living at a predictable repository-local path. If a repository intentionally wants to commit `.agc/`, it can remove that exclude entry and manage ignore rules itself.
+The harness does not manage Git ignore rules for `.agc/`. That directory is repository-local on purpose, and users can choose whether to commit it or ignore it. For most repositories, adding `.agc/` to `.gitignore` is strongly recommended; otherwise `.agc/config.json` and transient files under `.agc/state/` can be picked up by the workflow's `git add --all` step and committed to the PR branch.
+
+If a repository wants to track `.agc/config.json` but keep runtime scratch files out of version control, prefer an ignore pattern like:
+
+```gitignore
+.agc/state/
+```
 
 ## Workflow
 
@@ -118,21 +124,20 @@ Given a single prompt argument, the CLI runs this sequence:
 2. Read the current branch with `git rev-parse --abbrev-ref HEAD`.
 3. Refuse to continue unless the branch is `main` or `master`.
 4. Refuse to continue unless `git status --porcelain` is empty.
-5. Resolve Git's per-repository exclude file with `git rev-parse --git-path info/exclude`.
-6. Ensure `.agc/` exists, create `.agc/config.json` if missing, and add `/.agc/` to that exclude file.
-7. Ask Codex for a feature-branch name using `codex exec` in read-only mode.
-8. Fall back to a deterministic slugged branch name if Codex fails or returns invalid output.
-9. Create the branch from the current base branch with `git checkout -b <branch> <base>`.
-10. Invoke `codex exec` non-interactively to implement the user request.
-11. If no files changed, stop cleanly without committing or opening a PR.
-12. If files changed, stage everything with `git add --all`.
-13. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
-14. Commit and push the branch.
-15. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
-16. Open the PR with `gh pr create --base ... --head ... --title ... --body ...`.
-17. Resolve PR metadata with `gh pr view <branch> --json ...`.
-18. Request the configured reviewers with `gh pr edit <number> --add-reviewer <reviewer1,reviewer2>`.
-19. Enter the review loop.
+5. Ensure `.agc/` exists and create `.agc/config.json` if missing.
+6. Ask Codex for a feature-branch name using `codex exec` in read-only mode.
+7. Fall back to a deterministic slugged branch name if Codex fails or returns invalid output.
+8. Create the branch from the current base branch with `git checkout -b <branch> <base>`.
+9. Invoke `codex exec` non-interactively to implement the user request.
+10. If no files changed, stop cleanly without committing or opening a PR.
+11. If files changed, stage everything with `git add --all`.
+12. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
+13. Commit and push the branch.
+14. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
+15. Open the PR with `gh pr create --base ... --head ... --title ... --body ...`.
+16. Resolve PR metadata with `gh pr view <branch> --json ...`.
+17. Request the configured reviewers with `gh pr edit <number> --add-reviewer <reviewer1,reviewer2>`.
+18. Enter the review loop.
 
 ## Review Loop
 
