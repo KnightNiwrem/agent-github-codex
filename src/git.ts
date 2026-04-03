@@ -98,14 +98,4 @@ export class GitClient {
       cwd,
     });
   }
-
-  async validateBranchName(cwd: string, branch: string): Promise<boolean> {
-    const result = await this.shell.run({
-      args: ["git", "check-ref-format", "--branch", branch],
-      cwd,
-      allowFailure: true,
-    });
-
-    return result.exitCode === 0;
-  }
 }

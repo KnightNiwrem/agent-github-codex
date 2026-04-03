@@ -190,7 +190,6 @@ test("skips commit and PR creation when codex makes no changes", async () => {
     exact(["git", "status", "--porcelain"], result("")),
     codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
     exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
-    exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
     exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
     exact(["git", "status", "--porcelain"], result("")),
@@ -228,10 +227,6 @@ test("review loop terminates when review fixes produce no file changes", async (
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-pass\n",
-    ),
-    exact(
-      ["git", "check-ref-format", "--branch", "feature/review-pass"],
-      result(),
     ),
     exact(
       ["git", "check-ref-format", "--branch", "feature/review-pass"],
@@ -353,10 +348,6 @@ test("review loop respects max unproductive polls before exiting", async () => {
       ["git", "check-ref-format", "--branch", "feature/review-wait"],
       result(),
     ),
-    exact(
-      ["git", "check-ref-format", "--branch", "feature/review-wait"],
-      result(),
-    ),
     exact(["git", "checkout", "-b", "feature/review-wait", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
     exact(["git", "status", "--porcelain"], result(" M src/index.ts\n")),
@@ -466,10 +457,6 @@ test("handles only new actionable review comments and re-requests review after p
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-loop\n",
-    ),
-    exact(
-      ["git", "check-ref-format", "--branch", "feature/review-loop"],
-      result(),
     ),
     exact(
       ["git", "check-ref-format", "--branch", "feature/review-loop"],

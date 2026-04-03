@@ -65,12 +65,6 @@ export async function runPromptWorkflow(
   const branch = await codex.generateBranchName(repoRoot, prompt);
   logger.info("branch.selected", { branch, baseBranch });
 
-  const isValidBranch = await git.validateBranchName(repoRoot, branch);
-
-  if (!isValidBranch) {
-    throw new AppError(`Generated branch name is invalid: ${branch}`);
-  }
-
   await git.createBranch(repoRoot, branch, baseBranch);
   logger.info("branch.created", { branch });
 
