@@ -67,7 +67,7 @@ test("reuses existing .agc reviewer configuration", async () => {
   ]);
 });
 
-test("defaults trusted review commenters from pull request reviewers", async () => {
+test("requires trusted review commenters in .agc config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -78,12 +78,9 @@ test("defaults trusted review commenters from pull request reviewers", async () 
     `${JSON.stringify({ pullRequestReviewers: ["@review-bot", "@copilot"] }, null, 2)}\n`,
   );
 
-  const state = await workspace.ensure(repoRoot);
-
-  expect(state.config.trustedReviewCommenters).toEqual([
-    "@review-bot",
-    "@copilot",
-  ]);
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*trustedReviewCommenters/s,
+  );
 });
 
 test("rejects non-string reviewer values in .agc config", async () => {

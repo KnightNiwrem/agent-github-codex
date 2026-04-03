@@ -117,7 +117,7 @@ The harness creates and manages this layout:
 - leading `@` characters are ignored
 - comparisons are case-insensitive against the GitHub review comment `user.login`
 
-If `trustedReviewCommenters` is omitted in an existing config, the harness defaults it to the `pullRequestReviewers` list for backward compatibility.
+`trustedReviewCommenters` is required in `.agc/config.json`.
 
 `state/` is reserved for transient harness runtime files such as Codex output scratch directories.
 
