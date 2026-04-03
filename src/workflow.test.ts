@@ -126,13 +126,10 @@ class TestLogger implements Logger {
 }
 
 function stubHarness(reviewers: string[] = ["@copilot"]): {
-  ensure: (
-    repoRoot: string,
-    gitExcludeFile: string,
-  ) => Promise<HarnessWorkspaceState>;
+  ensure: (repoRoot: string) => Promise<HarnessWorkspaceState>;
 } {
   return {
-    ensure: async (repoRoot: string, gitExcludeFile: string) => {
+    ensure: async (repoRoot: string) => {
       const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
       temporaryDirectories.push(stateDir);
 
@@ -140,7 +137,6 @@ function stubHarness(reviewers: string[] = ["@copilot"]): {
         rootDir: join(repoRoot, ".agc"),
         stateDir,
         configFile: join(repoRoot, ".agc", "config.json"),
-        gitExcludeFile,
         config: {
           pullRequestReviewers: reviewers,
         },
@@ -231,10 +227,6 @@ test("skips commit and PR creation when codex makes no changes", async () => {
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
-    exact(
-      ["git", "rev-parse", "--git-path", "info/exclude"],
-      result("/repo/.git/info/exclude\n"),
-    ),
     codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
     exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
     exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
@@ -272,10 +264,6 @@ test("review loop terminates when review fixes produce no file changes", async (
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
-    exact(
-      ["git", "rev-parse", "--git-path", "info/exclude"],
-      result("/repo/.git/info/exclude\n"),
-    ),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-pass\n",
@@ -393,10 +381,6 @@ test("review loop respects max unproductive polls before exiting", async () => {
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
-    exact(
-      ["git", "rev-parse", "--git-path", "info/exclude"],
-      result("/repo/.git/info/exclude\n"),
-    ),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-wait\n",
@@ -515,10 +499,6 @@ test("handles only new actionable review comments and re-requests review after p
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
-    exact(
-      ["git", "rev-parse", "--git-path", "info/exclude"],
-      result("/repo/.git/info/exclude\n"),
-    ),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-loop\n",

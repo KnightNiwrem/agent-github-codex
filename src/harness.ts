@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { z } from "zod";
 import { AppError } from "./errors";
 import type { HarnessConfig } from "./types";
@@ -11,7 +11,6 @@ export interface HarnessLayout {
 }
 
 export interface HarnessWorkspaceState extends HarnessLayout {
-  gitExcludeFile: string;
   config: HarnessConfig;
 }
 
@@ -19,7 +18,6 @@ const DEFAULT_CONFIG: HarnessConfig = {
   pullRequestReviewers: ["@copilot"],
 };
 
-const AGC_EXCLUDE_ENTRY = "/.agc/";
 const harnessConfigSchema = z.object({
   pullRequestReviewers: z.array(z.string().trim().min(1)).min(1),
 });
@@ -50,27 +48,6 @@ function normalizeConfig(value: unknown): HarnessConfig {
   return {
     pullRequestReviewers: [...new Set(parsed.data.pullRequestReviewers)],
   };
-}
-
-async function ensureGitExcludeEntry(path: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-
-  const current = await readFile(path, "utf8").catch(() => "");
-  const entries = current
-    .split(/\r?\n/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-
-  if (entries.includes(AGC_EXCLUDE_ENTRY)) {
-    return;
-  }
-
-  const next =
-    current.endsWith("\n") || current.length === 0
-      ? `${current}${AGC_EXCLUDE_ENTRY}\n`
-      : `${current}\n${AGC_EXCLUDE_ENTRY}\n`;
-
-  await writeFile(path, next, "utf8");
 }
 
 async function ensureConfigFile(path: string): Promise<HarnessConfig> {
@@ -106,19 +83,14 @@ export async function createHarnessTempDirectory(
 }
 
 export class FileSystemHarnessWorkspace {
-  async ensure(
-    repoRoot: string,
-    gitExcludeFile: string,
-  ): Promise<HarnessWorkspaceState> {
+  async ensure(repoRoot: string): Promise<HarnessWorkspaceState> {
     const layout = defaultLayout(repoRoot);
 
     await mkdir(layout.stateDir, { recursive: true });
-    await ensureGitExcludeEntry(gitExcludeFile);
     const config = await ensureConfigFile(layout.configFile);
 
     return {
       ...layout,
-      gitExcludeFile,
       config,
     };
   }
