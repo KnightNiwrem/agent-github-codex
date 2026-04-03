@@ -22,15 +22,18 @@ export interface HarnessWorkspaceState extends HarnessLayout {
 
 const DEFAULT_CONFIG: HarnessConfig = {
   pullRequestReviewers: ["@copilot"],
+  trustedReviewCommenters: ["@copilot"],
 };
 
 const harnessConfigSchema = z.object({
   pullRequestReviewers: z.array(z.string().trim().min(1)).min(1),
+  trustedReviewCommenters: z.array(z.string().trim().min(1)).min(1),
 });
 
 function cloneDefaultConfig(): HarnessConfig {
   return {
     pullRequestReviewers: [...DEFAULT_CONFIG.pullRequestReviewers],
+    trustedReviewCommenters: [...DEFAULT_CONFIG.trustedReviewCommenters],
   };
 }
 
@@ -57,6 +60,7 @@ function normalizeConfig(value: unknown): HarnessConfig {
 
   return {
     pullRequestReviewers: [...new Set(parsed.data.pullRequestReviewers)],
+    trustedReviewCommenters: [...new Set(parsed.data.trustedReviewCommenters)],
   };
 }
 

@@ -86,6 +86,8 @@ gh pr edit <number> --add-reviewer <reviewer1,reviewer2>
 
 Reviewers come from the repository-local harness config in `.agc/config.json`. The default value is `["@copilot"]`, and when multiple reviewers are configured the CLI passes them to `gh` as a single comma-separated `--add-reviewer` argument. If a configured reviewer is not supported in the current GitHub environment, the CLI will fail with the underlying `gh` error.
 
+Review comments are filtered separately through `trustedReviewCommenters`. Only comments authored by identities in that allowlist are forwarded to Codex during the review loop.
+
 ## Repository-Local Harness State
 
 This CLI standardizes its own repository-local config and runtime state under `.agc/` at the repository root.
@@ -102,9 +104,20 @@ The harness creates and manages this layout:
 
 ```json
 {
-  "pullRequestReviewers": ["@copilot"]
+  "pullRequestReviewers": ["@copilot"],
+  "trustedReviewCommenters": ["@copilot"]
 }
 ```
+
+`pullRequestReviewers` controls who gets requested on the PR.
+
+`trustedReviewCommenters` controls whose review comments are allowed to reach Codex. Matching is deterministic:
+
+- values are trimmed
+- leading `@` characters are ignored
+- comparisons are case-insensitive against the GitHub review comment `user.login`
+
+`trustedReviewCommenters` is required in `.agc/config.json`.
 
 `state/` is reserved for transient harness runtime files such as Codex output scratch directories.
 
@@ -158,7 +171,7 @@ After the PR is created, the CLI enters a deterministic polling loop:
 gh api --paginate --slurp repos/{owner}/{repo}/pulls/<number>/comments
 ```
 
-3. Ignore reply comments and ignore comment IDs that were already processed earlier in the same run.
+3. Ignore reply comments, ignore untrusted reviewers, and ignore comment IDs that were already processed earlier in the same run.
 4. Track consecutive no-op polls and exit once the configured `--max-unproductive-polls` threshold is reached.
 5. Send only the new actionable comment set to `codex exec` for validation and fixes.
 6. If Codex produces no file changes, exit cleanly.
@@ -167,6 +180,8 @@ gh api --paginate --slurp repos/{owner}/{repo}/pulls/<number>/comments
 9. Repeat the loop.
 
 This prevents the tool from reprocessing the same review comments forever.
+
+When a top-level review comment is ignored because the author is not trusted, the CLI emits a warning log entry with the comment ID and reviewer identity.
 
 ## Deterministic Fallbacks
 

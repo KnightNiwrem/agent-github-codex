@@ -30,8 +30,10 @@ test("creates a default .agc layout and config", async () => {
   expect(state.rootDir).toBe(join(repoRoot, ".agc"));
   expect(state.stateDir).toBe(join(repoRoot, ".agc", "state"));
   expect(state.config.pullRequestReviewers).toEqual(["@copilot"]);
+  expect(state.config.trustedReviewCommenters).toEqual(["@copilot"]);
   expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
     pullRequestReviewers: ["@copilot"],
+    trustedReviewCommenters: ["@copilot"],
   });
 });
 
@@ -43,7 +45,14 @@ test("reuses existing .agc reviewer configuration", async () => {
   await mkdir(join(repoRoot, ".agc"), { recursive: true });
   await Bun.write(
     configFile,
-    `${JSON.stringify({ pullRequestReviewers: ["@review-bot", "@copilot"] }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        pullRequestReviewers: ["@review-bot", "@copilot"],
+        trustedReviewCommenters: ["review-bot", "@copilot", "@copilot"],
+      },
+      null,
+      2,
+    )}\n`,
   );
 
   const state = await workspace.ensure(repoRoot);
@@ -52,6 +61,26 @@ test("reuses existing .agc reviewer configuration", async () => {
     "@review-bot",
     "@copilot",
   ]);
+  expect(state.config.trustedReviewCommenters).toEqual([
+    "review-bot",
+    "@copilot",
+  ]);
+});
+
+test("requires trusted review commenters in .agc config", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify({ pullRequestReviewers: ["@review-bot", "@copilot"] }, null, 2)}\n`,
+  );
+
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*trustedReviewCommenters/s,
+  );
 });
 
 test("rejects non-string reviewer values in .agc config", async () => {
@@ -83,6 +112,29 @@ test("rejects blank reviewer values in .agc config", async () => {
 
   await expect(workspace.ensure(repoRoot)).rejects.toThrow(
     /Invalid \.agc\/config\.json:.*Too small: expected string to have >=1 characters/s,
+  );
+});
+
+test("rejects an empty trusted review commenter allowlist", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify(
+      {
+        pullRequestReviewers: ["@copilot"],
+        trustedReviewCommenters: [],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*expected array to have >=1 items/s,
   );
 });
 
