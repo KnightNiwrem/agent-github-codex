@@ -123,19 +123,21 @@ export class GitHubClient {
     pullRequestNumber: number,
     reviewers: string[],
   ): Promise<void> {
-    for (const reviewer of reviewers) {
-      await this.shell.run({
-        args: [
-          "gh",
-          "pr",
-          "edit",
-          String(pullRequestNumber),
-          "--add-reviewer",
-          reviewer,
-        ],
-        cwd,
-      });
+    if (reviewers.length === 0) {
+      return;
     }
+
+    await this.shell.run({
+      args: [
+        "gh",
+        "pr",
+        "edit",
+        String(pullRequestNumber),
+        "--add-reviewer",
+        reviewers.join(","),
+      ],
+      cwd,
+    });
   }
 
   async listReviewComments(

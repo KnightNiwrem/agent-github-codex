@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AppError } from "./errors";
 import { FileSystemHarnessWorkspace } from "./harness";
 
 const temporaryDirectories: string[] = [];
@@ -41,6 +42,7 @@ test("reuses existing .agc reviewer configuration", async () => {
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
 
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
   await Bun.write(
     configFile,
     `${JSON.stringify({ pullRequestReviewers: ["@review-bot", "@copilot"] }, null, 2)}\n`,
@@ -54,4 +56,20 @@ test("reuses existing .agc reviewer configuration", async () => {
     "@copilot",
   ]);
   expect(await readFile(state.gitExcludeFile, "utf8")).toContain("/.agc/");
+});
+
+test("rejects non-string reviewer values in .agc config", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify({ pullRequestReviewers: ["@copilot", { login: "@review-bot" }] }, null, 2)}\n`,
+  );
+
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*expected string, received object/s,
+  );
 });

@@ -130,10 +130,10 @@ function stubHarness(reviewers: string[] = ["@copilot"]): {
 } {
   return {
     ensure: async (repoRoot: string) => ({
-      rootDir: `${repoRoot}/.agc`,
+      rootDir: join(repoRoot, ".agc"),
       stateDir: join(harnessStateRoot, "state"),
-      configFile: `${repoRoot}/.agc/config.json`,
-      gitExcludeFile: `${repoRoot}/.git/info/exclude`,
+      configFile: join(repoRoot, ".agc", "config.json"),
+      gitExcludeFile: join(repoRoot, ".git", "info", "exclude"),
       config: {
         pullRequestReviewers: reviewers,
       },
@@ -433,7 +433,10 @@ test("review loop respects max unproductive polls before exiting", async () => {
         }),
       ),
     ),
-    exact(["gh", "pr", "edit", "4", "--add-reviewer", "@review-bot"], result()),
+    exact(
+      ["gh", "pr", "edit", "4", "--add-reviewer", "@review-bot,@copilot"],
+      result(),
+    ),
     exact(
       [
         "gh",
@@ -459,7 +462,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
   const workflow = await runPromptWorkflow("Wait for review comments", {
     shell,
     logger: new TestLogger(),
-    harness: stubHarness(["@review-bot"]),
+    harness: stubHarness(["@review-bot", "@copilot"]),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
     options: {

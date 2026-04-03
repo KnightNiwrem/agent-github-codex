@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import { AppError } from "./errors";
 import type { HarnessConfig } from "./types";
 
@@ -19,6 +20,9 @@ const DEFAULT_CONFIG: HarnessConfig = {
 };
 
 const AGC_EXCLUDE_ENTRY = "/.agc/";
+const harnessConfigSchema = z.object({
+  pullRequestReviewers: z.array(z.string().trim()).min(1),
+});
 
 function defaultLayout(repoRoot: string): HarnessLayout {
   return {
@@ -30,22 +34,17 @@ function defaultLayout(repoRoot: string): HarnessLayout {
 }
 
 function normalizeConfig(value: unknown): HarnessConfig {
-  if (!value || typeof value !== "object") {
-    throw new AppError("Invalid .agc/config.json: expected a JSON object.");
-  }
+  const parsed = harnessConfigSchema.safeParse(value);
 
-  const reviewers =
-    "pullRequestReviewers" in value ? value.pullRequestReviewers : undefined;
-
-  if (!Array.isArray(reviewers)) {
+  if (!parsed.success) {
     throw new AppError(
-      "Invalid .agc/config.json: pullRequestReviewers must be an array of strings.",
+      `Invalid .agc/config.json: ${z.prettifyError(parsed.error)}`,
     );
   }
 
-  const normalizedReviewers = reviewers
-    .map((reviewer) => String(reviewer).trim())
-    .filter((reviewer) => reviewer.length > 0);
+  const normalizedReviewers = parsed.data.pullRequestReviewers.filter(
+    (reviewer) => reviewer.length > 0,
+  );
 
   if (normalizedReviewers.length === 0) {
     throw new AppError(
