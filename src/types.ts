@@ -66,3 +66,7 @@ export interface ReviewLoopState {
 export interface WorkflowOptions {
   maxUnproductivePolls?: number;
 }
+
+export interface HarnessConfig {
+  pullRequestReviewers: string[];
+}

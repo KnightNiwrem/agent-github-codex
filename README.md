@@ -81,10 +81,34 @@ This CLI assumes the external CLIs are already configured:
 The review re-request flow uses:
 
 ```bash
-gh pr edit <number> --add-reviewer @copilot
+gh pr edit <number> --add-reviewer <reviewer1,reviewer2>
 ```
 
-That path is explicitly documented by the installed `gh` help output for environments that support Copilot review requests. If the current GitHub environment does not support `@copilot`, the CLI will fail with the underlying `gh` error.
+Reviewers come from the repository-local harness config in `.agc/config.json`. The default value is `["@copilot"]`, and when multiple reviewers are configured the CLI passes them to `gh` as a single comma-separated `--add-reviewer` argument. If a configured reviewer is not supported in the current GitHub environment, the CLI will fail with the underlying `gh` error.
+
+## Repository-Local Harness State
+
+This CLI standardizes its own repository-local config and runtime state under `.agc/` at the repository root.
+
+The harness creates and manages this layout:
+
+```text
+.agc/
+  config.json
+  state/
+```
+
+`config.json` is the durable harness-owned config file. The initial JSON schema is:
+
+```json
+{
+  "pullRequestReviewers": ["@copilot"]
+}
+```
+
+`state/` is reserved for transient harness runtime files such as Codex output scratch directories.
+
+To keep arbitrary repositories clean, the CLI adds `/.agc/` to Git's per-repository exclude file, resolved via `git rev-parse --git-path info/exclude`, and does not mutate tracked `.gitignore` files. That means `.agc/` stays untracked by default, while still living at a predictable repository-local path. If a repository intentionally wants to commit `.agc/`, it can remove that exclude entry and manage ignore rules itself.
 
 ## Workflow
 
@@ -94,19 +118,21 @@ Given a single prompt argument, the CLI runs this sequence:
 2. Read the current branch with `git rev-parse --abbrev-ref HEAD`.
 3. Refuse to continue unless the branch is `main` or `master`.
 4. Refuse to continue unless `git status --porcelain` is empty.
-5. Ask Codex for a feature-branch name using `codex exec` in read-only mode.
-6. Fall back to a deterministic slugged branch name if Codex fails or returns invalid output.
-7. Create the branch from the current base branch with `git checkout -b <branch> <base>`.
-8. Invoke `codex exec` non-interactively to implement the user request.
-9. If no files changed, stop cleanly without committing or opening a PR.
-10. If files changed, stage everything with `git add --all`.
-11. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
-12. Commit and push the branch.
-13. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
-14. Open the PR with `gh pr create --base ... --head ... --title ... --body ...`.
-15. Resolve PR metadata with `gh pr view <branch> --json ...`.
-16. Request Copilot review with `gh pr edit <number> --add-reviewer @copilot`.
-17. Enter the review loop.
+5. Resolve Git's per-repository exclude file with `git rev-parse --git-path info/exclude`.
+6. Ensure `.agc/` exists, create `.agc/config.json` if missing, and add `/.agc/` to that exclude file.
+7. Ask Codex for a feature-branch name using `codex exec` in read-only mode.
+8. Fall back to a deterministic slugged branch name if Codex fails or returns invalid output.
+9. Create the branch from the current base branch with `git checkout -b <branch> <base>`.
+10. Invoke `codex exec` non-interactively to implement the user request.
+11. If no files changed, stop cleanly without committing or opening a PR.
+12. If files changed, stage everything with `git add --all`.
+13. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
+14. Commit and push the branch.
+15. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
+16. Open the PR with `gh pr create --base ... --head ... --title ... --body ...`.
+17. Resolve PR metadata with `gh pr view <branch> --json ...`.
+18. Request the configured reviewers with `gh pr edit <number> --add-reviewer <reviewer1,reviewer2>`.
+19. Enter the review loop.
 
 ## Review Loop
 
@@ -124,14 +150,10 @@ gh api --paginate --slurp repos/{owner}/{repo}/pulls/<number>/comments
 5. Send only the new actionable comment set to `codex exec` for validation and fixes.
 6. If Codex produces no file changes, exit cleanly.
 7. If Codex does produce changes, stage, commit, and push them.
-8. Only after a successful push, request Copilot review again with `gh pr edit <number> --add-reviewer @copilot`.
+8. Only after a successful push, request the configured reviewers again with `gh pr edit <number> --add-reviewer <reviewer1,reviewer2>`.
 9. Repeat the loop.
 
 This prevents the tool from reprocessing the same review comments forever.
-
-## Planned Local Config
-
-Repository-local harness config/state standardization is planned in a future iteration. The current direction is to use a `.agc/` directory for this tool's own configuration and state, including reviewer allowlists and other harness-specific values.
 
 ## Deterministic Fallbacks
 
@@ -140,6 +162,7 @@ The CLI includes code-driven fallbacks for the helper text generation steps:
 - branch name fallback: deterministic `feature/<slug>-<hash>`
 - commit message fallback: deterministic conventional-commit style summary
 - PR title/body fallback: deterministic title plus a short markdown template
+- Codex scratch output location: `.agc/state/`
 
 If Codex helper calls fail for those bounded text tasks, the workflow still proceeds.
 
@@ -150,10 +173,11 @@ The CLI exits non-zero when:
 - the current branch is not `main` or `master`
 - the workspace is dirty before the run starts
 - `git`, `gh`, or `codex` commands fail
+- `.agc/config.json` is invalid
 - branch creation fails
 - push fails
 - PR creation fails
-- Copilot review request fails in the current GitHub environment
+- configured reviewer request fails in the current GitHub environment
 
 The CLI also stops without creating a PR when Codex completes the implementation pass but leaves no file changes.
 

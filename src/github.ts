@@ -118,10 +118,15 @@ export class GitHubClient {
     };
   }
 
-  async requestCopilotReview(
+  async requestReviewers(
     cwd: string,
     pullRequestNumber: number,
+    reviewers: string[],
   ): Promise<void> {
+    if (reviewers.length === 0) {
+      return;
+    }
+
     await this.shell.run({
       args: [
         "gh",
@@ -129,7 +134,7 @@ export class GitHubClient {
         "edit",
         String(pullRequestNumber),
         "--add-reviewer",
-        "@copilot",
+        reviewers.join(","),
       ],
       cwd,
     });

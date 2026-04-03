@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from "node:path";
 import { AppError } from "./errors";
 import type { ShellRunner } from "./types";
 
@@ -20,6 +21,17 @@ export class GitClient {
     });
 
     return result.stdout.trim();
+  }
+
+  async getGitPath(cwd: string, path: string): Promise<string> {
+    const result = await this.shell.run({
+      args: ["git", "rev-parse", "--git-path", path],
+      cwd,
+    });
+
+    const resolvedPath = result.stdout.trim();
+
+    return isAbsolute(resolvedPath) ? resolvedPath : resolve(cwd, resolvedPath);
   }
 
   async ensureCleanWorkspace(cwd: string): Promise<void> {

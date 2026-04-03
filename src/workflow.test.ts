@@ -1,15 +1,18 @@
-import { beforeEach, describe, expect, test } from "bun:test";
-import { writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CodexClient } from "./codex";
 import { AppError } from "./errors";
+import type { HarnessWorkspaceState } from "./harness";
 import { ConsoleLogger } from "./logger";
 import type { CommandResult, CommandSpec, Logger, ShellRunner } from "./types";
 import { runPromptWorkflow } from "./workflow";
 
 const testFileDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(testFileDirectory, "..");
+const temporaryDirectories: string[] = [];
 
 interface Step {
   match(args: string[]): boolean;
@@ -122,8 +125,40 @@ class TestLogger implements Logger {
   }
 }
 
+function stubHarness(reviewers: string[] = ["@copilot"]): {
+  ensure: (
+    repoRoot: string,
+    gitExcludeFile: string,
+  ) => Promise<HarnessWorkspaceState>;
+} {
+  return {
+    ensure: async (repoRoot: string, gitExcludeFile: string) => {
+      const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
+      temporaryDirectories.push(stateDir);
+
+      return {
+        rootDir: join(repoRoot, ".agc"),
+        stateDir,
+        configFile: join(repoRoot, ".agc", "config.json"),
+        gitExcludeFile,
+        config: {
+          pullRequestReviewers: reviewers,
+        },
+      };
+    },
+  };
+}
+
 beforeEach(() => {
   process.chdir(repositoryRoot);
+});
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 describe("workflow guards", () => {
@@ -138,6 +173,7 @@ describe("workflow guards", () => {
       runPromptWorkflow("update docs", {
         shell,
         logger: new TestLogger(),
+        harness: stubHarness(),
         sleep: async () => undefined,
       }),
     ).rejects.toThrow(
@@ -160,6 +196,7 @@ describe("workflow guards", () => {
       runPromptWorkflow("update docs", {
         shell,
         logger: new TestLogger(),
+        harness: stubHarness(),
         sleep: async () => undefined,
       }),
     ).rejects.toThrow(
@@ -177,7 +214,13 @@ test("feature branch naming falls back deterministically", async () => {
     codexOutputContains("Return only a git branch name.", ""),
   ]);
   const client = new CodexClient(shell);
-  const branch = await client.generateBranchName("/repo", "Add logging to CLI");
+  const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
+  temporaryDirectories.push(stateDir);
+  const branch = await client.generateBranchName(
+    "/repo",
+    "Add logging to CLI",
+    stateDir,
+  );
 
   expect(branch).toMatch(/^feature\/add-logging-to-cli-[a-f0-9]{6}$/);
   shell.assertComplete();
@@ -188,6 +231,10 @@ test("skips commit and PR creation when codex makes no changes", async () => {
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
+    exact(
+      ["git", "rev-parse", "--git-path", "info/exclude"],
+      result("/repo/.git/info/exclude\n"),
+    ),
     codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
     exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
     exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
@@ -200,6 +247,7 @@ test("skips commit and PR creation when codex makes no changes", async () => {
   const workflow = await runPromptWorkflow("No-op request", {
     shell,
     logger,
+    harness: stubHarness(),
     sleep: async () => undefined,
   });
 
@@ -224,6 +272,10 @@ test("review loop terminates when review fixes produce no file changes", async (
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
+    exact(
+      ["git", "rev-parse", "--git-path", "info/exclude"],
+      result("/repo/.git/info/exclude\n"),
+    ),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-pass\n",
@@ -322,6 +374,7 @@ test("review loop terminates when review fixes produce no file changes", async (
   const workflow = await runPromptWorkflow("Implement something", {
     shell,
     logger: new TestLogger(),
+    harness: stubHarness(),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
   });
@@ -340,6 +393,10 @@ test("review loop respects max unproductive polls before exiting", async () => {
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
+    exact(
+      ["git", "rev-parse", "--git-path", "info/exclude"],
+      result("/repo/.git/info/exclude\n"),
+    ),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-wait\n",
@@ -406,7 +463,10 @@ test("review loop respects max unproductive polls before exiting", async () => {
         }),
       ),
     ),
-    exact(["gh", "pr", "edit", "4", "--add-reviewer", "@copilot"], result()),
+    exact(
+      ["gh", "pr", "edit", "4", "--add-reviewer", "@review-bot,@copilot"],
+      result(),
+    ),
     exact(
       [
         "gh",
@@ -432,6 +492,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
   const workflow = await runPromptWorkflow("Wait for review comments", {
     shell,
     logger: new TestLogger(),
+    harness: stubHarness(["@review-bot", "@copilot"]),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
     options: {
@@ -454,6 +515,10 @@ test("handles only new actionable review comments and re-requests review after p
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
     exact(["git", "status", "--porcelain"], result("")),
+    exact(
+      ["git", "rev-parse", "--git-path", "info/exclude"],
+      result("/repo/.git/info/exclude\n"),
+    ),
     codexOutputContains(
       "Return only a git branch name.",
       "feature/review-loop\n",
@@ -607,6 +672,7 @@ test("handles only new actionable review comments and re-requests review after p
   const workflow = await runPromptWorkflow("Implement something bigger", {
     shell,
     logger: new TestLogger(),
+    harness: stubHarness(),
     sleep: async () => undefined,
     reviewPollIntervalMs: 1,
   });
