@@ -81,10 +81,10 @@ This CLI assumes the external CLIs are already configured:
 The review re-request flow uses:
 
 ```bash
-gh pr edit <number> --add-reviewer <reviewer>
+gh pr edit <number> --add-reviewer <reviewer1,reviewer2>
 ```
 
-Reviewers come from the repository-local harness config in `.agc/config.json`. The default value is `["@copilot"]`. If the configured reviewer is not supported in the current GitHub environment, the CLI will fail with the underlying `gh` error.
+Reviewers come from the repository-local harness config in `.agc/config.json`. The default value is `["@copilot"]`, and when multiple reviewers are configured the CLI passes them to `gh` as a single comma-separated `--add-reviewer` argument. If a configured reviewer is not supported in the current GitHub environment, the CLI will fail with the underlying `gh` error.
 
 ## Repository-Local Harness State
 
@@ -131,7 +131,7 @@ Given a single prompt argument, the CLI runs this sequence:
 15. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
 16. Open the PR with `gh pr create --base ... --head ... --title ... --body ...`.
 17. Resolve PR metadata with `gh pr view <branch> --json ...`.
-18. Request the configured reviewers with `gh pr edit <number> --add-reviewer <reviewer>`.
+18. Request the configured reviewers with `gh pr edit <number> --add-reviewer <reviewer1,reviewer2>`.
 19. Enter the review loop.
 
 ## Review Loop
@@ -150,7 +150,7 @@ gh api --paginate --slurp repos/{owner}/{repo}/pulls/<number>/comments
 5. Send only the new actionable comment set to `codex exec` for validation and fixes.
 6. If Codex produces no file changes, exit cleanly.
 7. If Codex does produce changes, stage, commit, and push them.
-8. Only after a successful push, request the configured reviewers again with `gh pr edit <number> --add-reviewer <reviewer>`.
+8. Only after a successful push, request the configured reviewers again with `gh pr edit <number> --add-reviewer <reviewer1,reviewer2>`.
 9. Repeat the loop.
 
 This prevents the tool from reprocessing the same review comments forever.

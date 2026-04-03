@@ -233,7 +233,7 @@ test("skips commit and PR creation when codex makes no changes", async () => {
     exact(["git", "status", "--porcelain"], result("")),
     exact(
       ["git", "rev-parse", "--git-path", "info/exclude"],
-      result(".git/info/exclude\n"),
+      result("/repo/.git/info/exclude\n"),
     ),
     codexOutputContains("Return only a git branch name.", "feature/no-op\n"),
     exact(["git", "check-ref-format", "--branch", "feature/no-op"], result()),
@@ -274,7 +274,7 @@ test("review loop terminates when review fixes produce no file changes", async (
     exact(["git", "status", "--porcelain"], result("")),
     exact(
       ["git", "rev-parse", "--git-path", "info/exclude"],
-      result(".git/info/exclude\n"),
+      result("/repo/.git/info/exclude\n"),
     ),
     codexOutputContains(
       "Return only a git branch name.",
@@ -395,7 +395,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
     exact(["git", "status", "--porcelain"], result("")),
     exact(
       ["git", "rev-parse", "--git-path", "info/exclude"],
-      result(".git/info/exclude\n"),
+      result("/repo/.git/info/exclude\n"),
     ),
     codexOutputContains(
       "Return only a git branch name.",
@@ -517,7 +517,7 @@ test("handles only new actionable review comments and re-requests review after p
     exact(["git", "status", "--porcelain"], result("")),
     exact(
       ["git", "rev-parse", "--git-path", "info/exclude"],
-      result(".git/info/exclude\n"),
+      result("/repo/.git/info/exclude\n"),
     ),
     codexOutputContains(
       "Return only a git branch name.",
