@@ -10,7 +10,9 @@
 
 ## Core Commands
 - Install: `bun install`
-- Application: `bun start`
+- Application: `bun start -- "<prompt>"`
+- Agent loop: `bun run agent -- "<prompt>"`
+- Global CLI link: `bun link` then `agent-github-codex "<prompt>"`
 - Watch mode: `bun dev`
 - Check: `bun run check`
 - Autofix check issues: `bun run check:fix`

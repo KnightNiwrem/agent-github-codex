@@ -1,10 +1,14 @@
 {
-  "name": "copilot-bun",
+  "name": "agent-github-codex",
+  "version": "0.1.0",
   "module": "src/index.ts",
   "type": "module",
-  "private": true,
+  "bin": {
+    "agent-github-codex": "./bin/agent-github-codex.ts"
+  },
   "scripts": {
     "start": "bun run src/index.ts",
+    "agent": "bun run src/cli.ts",
     "dev": "bun --watch src/index.ts",
     "check": "biome check .",
     "check:fix": "biome check --write .",
