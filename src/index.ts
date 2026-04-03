@@ -12,11 +12,33 @@ program
   .description(
     "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   )
+  .option(
+    "--max-unproductive-polls <count>",
+    "Number of consecutive review polls with no new actionable comments before exiting; 0 means poll indefinitely",
+    (value: string) => {
+      const parsed = Number.parseInt(value, 10);
+
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        throw new Error(
+          "--max-unproductive-polls must be a non-negative integer",
+        );
+      }
+
+      return parsed;
+    },
+    1,
+  )
   .argument("<prompt>", "Prompt describing the requested repository change")
-  .action(async (prompt: string) => {
+  .action(async (prompt: string, options: { maxUnproductivePolls: number }) => {
     const logger = new ConsoleLogger();
     const shell = new BunShellRunner();
-    const result = await runPromptWorkflow(prompt, { shell, logger });
+    const result = await runPromptWorkflow(prompt, {
+      shell,
+      logger,
+      options: {
+        maxUnproductivePolls: options.maxUnproductivePolls,
+      },
+    });
 
     logger.info("workflow.complete", {
       branch: result.branch,

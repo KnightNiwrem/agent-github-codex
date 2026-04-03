@@ -44,6 +44,13 @@ export class GitClient {
     });
   }
 
+  async checkoutBranch(cwd: string, branch: string): Promise<void> {
+    await this.shell.run({
+      args: ["git", "checkout", branch],
+      cwd,
+    });
+  }
+
   async hasChanges(cwd: string): Promise<boolean> {
     const result = await this.shell.run({
       args: ["git", "status", "--porcelain"],

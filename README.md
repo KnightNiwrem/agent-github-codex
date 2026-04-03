@@ -54,6 +54,14 @@ Run locally from this repository:
 bun start -- "implement the requested change"
 ```
 
+Control how long the review loop tolerates polls with no new actionable comments:
+
+```bash
+deer-agent --max-unproductive-polls 3 "implement the requested change"
+```
+
+Use `0` to allow unlimited polling.
+
 ## Expected Auth And Setup
 
 This CLI assumes the external CLIs are already configured:

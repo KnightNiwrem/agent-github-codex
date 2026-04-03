@@ -194,16 +194,25 @@ test("skips commit and PR creation when codex makes no changes", async () => {
     exact(["git", "checkout", "-b", "feature/no-op", "main"], result()),
     codexEditContains("Implement the requested change in this repository."),
     exact(["git", "status", "--porcelain"], result("")),
+    exact(["git", "checkout", "main"], result()),
   ]);
+  const logger = new TestLogger();
 
   const workflow = await runPromptWorkflow("No-op request", {
     shell,
-    logger: new TestLogger(),
+    logger,
     sleep: async () => undefined,
   });
 
   expect(workflow.committed).toBe(false);
   expect(workflow.reviewLoopReason).toBe("no_initial_changes");
+  expect(
+    logger.entries.some(
+      (entry) =>
+        entry.event === "branch.restored" &&
+        entry.fields?.reason === "no_initial_changes",
+    ),
+  ).toBe(true);
   expect(shell.calls.some((args) => args[0] === "gh")).toBe(false);
   expect(
     shell.calls.some((args) => args[0] === "git" && args[1] === "commit"),
@@ -328,6 +337,123 @@ test("review loop terminates when review fixes produce no file changes", async (
       (args) => args[0] === "gh" && args[1] === "pr" && args[2] === "edit",
     ).length,
   ).toBe(1);
+  shell.assertComplete();
+});
+
+test("review loop respects max unproductive polls before exiting", async () => {
+  const shell = new SequenceShellRunner([
+    exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
+    exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
+    exact(["git", "status", "--porcelain"], result("")),
+    codexOutputContains(
+      "Return only a git branch name.",
+      "feature/review-wait\n",
+    ),
+    exact(
+      ["git", "check-ref-format", "--branch", "feature/review-wait"],
+      result(),
+    ),
+    exact(
+      ["git", "check-ref-format", "--branch", "feature/review-wait"],
+      result(),
+    ),
+    exact(["git", "checkout", "-b", "feature/review-wait", "main"], result()),
+    codexEditContains("Implement the requested change in this repository."),
+    exact(["git", "status", "--porcelain"], result(" M src/index.ts\n")),
+    exact(["git", "add", "--all"], result()),
+    exact(
+      ["git", "diff", "--cached", "--stat"],
+      result(" src/index.ts | 2 +-\n"),
+    ),
+    codexOutputContains(
+      "Return only a single conventional commit message line.",
+      "feat: initial change\n",
+    ),
+    exact(["git", "commit", "-m", "feat: initial change"], result()),
+    exact(["git", "push", "-u", "origin", "feature/review-wait"], result()),
+    exact(
+      ["git", "diff", "main...HEAD", "--stat"],
+      result(" src/index.ts | 2 +-\n"),
+    ),
+    codexOutputContains(
+      "Draft a GitHub pull request title and body.",
+      "TITLE: feat: initial change\nBODY:\nBody",
+    ),
+    exact(
+      [
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "feature/review-wait",
+        "--title",
+        "feat: initial change",
+        "--body",
+        "Body",
+      ],
+      result("https://example.test/pr/4\n"),
+    ),
+    exact(
+      [
+        "gh",
+        "pr",
+        "view",
+        "feature/review-wait",
+        "--json",
+        "number,url,title,body,headRefName,baseRefName",
+      ],
+      result(
+        JSON.stringify({
+          number: 4,
+          url: "https://example.test/pr/4",
+          title: "feat: initial change",
+          body: "Body",
+          headRefName: "feature/review-wait",
+          baseRefName: "main",
+        }),
+      ),
+    ),
+    exact(["gh", "pr", "edit", "4", "--add-reviewer", "@copilot"], result()),
+    exact(
+      [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        "repos/{owner}/{repo}/pulls/4/comments",
+      ],
+      result(JSON.stringify([[]])),
+    ),
+    exact(
+      [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        "repos/{owner}/{repo}/pulls/4/comments",
+      ],
+      result(JSON.stringify([[]])),
+    ),
+  ]);
+
+  const workflow = await runPromptWorkflow("Wait for review comments", {
+    shell,
+    logger: new TestLogger(),
+    sleep: async () => undefined,
+    reviewPollIntervalMs: 1,
+    options: {
+      maxUnproductivePolls: 2,
+    },
+  });
+
+  expect(workflow.reviewLoopReason).toBe("no_new_actionable_comments");
+  expect(
+    shell.calls.filter(
+      (args) => args[0] === "gh" && args[1] === "api" && args[3] === "--slurp",
+    ).length,
+  ).toBe(2);
   shell.assertComplete();
 });
 

@@ -11,6 +11,7 @@ import type {
   ReviewComment,
   ReviewLoopState,
   ShellRunner,
+  WorkflowOptions,
   WorkflowResult,
 } from "./types";
 import { sleep as defaultSleep } from "./utils";
@@ -20,6 +21,7 @@ export interface WorkflowDependencies {
   logger: Logger;
   sleep?: (ms: number) => Promise<void>;
   reviewPollIntervalMs?: number;
+  options?: WorkflowOptions;
 }
 
 function actionableReviewComments(
@@ -42,6 +44,7 @@ export async function runPromptWorkflow(
   const reviewPollIntervalMs =
     dependencies.reviewPollIntervalMs ?? DEFAULT_REVIEW_POLL_INTERVAL_MS;
   const sleep = dependencies.sleep ?? defaultSleep;
+  const maxUnproductivePolls = dependencies.options?.maxUnproductivePolls ?? 1;
   const git = new GitClient(shell);
   const codex = new CodexClient(shell);
   const github = new GitHubClient(shell);
@@ -77,7 +80,15 @@ export async function runPromptWorkflow(
   const hasInitialChanges = await git.hasChanges(repoRoot);
 
   if (!hasInitialChanges) {
-    logger.info("workflow.no_initial_changes", { branch });
+    logger.info("workflow.no_initial_changes", {
+      branch,
+      message: "No file changes were produced; returning to the base branch.",
+    });
+    await git.checkoutBranch(repoRoot, baseBranch);
+    logger.info("branch.restored", {
+      branch: baseBranch,
+      reason: "no_initial_changes",
+    });
 
     return {
       branch,
@@ -139,6 +150,7 @@ export async function runPromptWorkflow(
     logger,
     sleep,
     reviewPollIntervalMs,
+    maxUnproductivePolls,
     reviewState,
   });
 
@@ -162,6 +174,7 @@ interface ReviewLoopArgs {
   logger: Logger;
   sleep: (ms: number) => Promise<void>;
   reviewPollIntervalMs: number;
+  maxUnproductivePolls: number;
   reviewState: ReviewLoopState;
 }
 
@@ -179,8 +192,10 @@ async function runReviewLoop(
     logger,
     sleep,
     reviewPollIntervalMs,
+    maxUnproductivePolls,
     reviewState,
   } = args;
+  let consecutiveUnproductivePolls = 0;
 
   while (true) {
     logger.info("review.waiting", { pullRequestNumber, reviewPollIntervalMs });
@@ -196,9 +211,24 @@ async function runReviewLoop(
     );
 
     if (actionable.length === 0) {
-      logger.info("review.no_new_actionable_comments", { pullRequestNumber });
-      return "no_new_actionable_comments";
+      consecutiveUnproductivePolls += 1;
+      logger.info("review.no_new_actionable_comments", {
+        pullRequestNumber,
+        consecutiveUnproductivePolls,
+        maxUnproductivePolls,
+      });
+
+      if (
+        maxUnproductivePolls !== 0 &&
+        consecutiveUnproductivePolls >= maxUnproductivePolls
+      ) {
+        return "no_new_actionable_comments";
+      }
+
+      continue;
     }
+
+    consecutiveUnproductivePolls = 0;
 
     for (const comment of actionable) {
       reviewState.seenCommentIds.add(comment.id);

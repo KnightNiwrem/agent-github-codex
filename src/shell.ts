@@ -1,4 +1,4 @@
-import { CommandExecutionError } from "./errors";
+import { AppError, CommandExecutionError } from "./errors";
 import type { CommandResult, CommandSpec, ShellRunner } from "./types";
 
 async function readStream(
@@ -29,7 +29,7 @@ export class BunShellRunner implements ShellRunner {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(
+      throw new AppError(
         `Failed to start command: ${spec.args.join(" ")}\n${message}`,
       );
     }

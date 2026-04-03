@@ -62,3 +62,7 @@ export interface WorkflowResult {
 export interface ReviewLoopState {
   seenCommentIds: Set<number>;
 }
+
+export interface WorkflowOptions {
+  maxUnproductivePolls?: number;
+}
