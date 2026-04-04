@@ -15,7 +15,6 @@ import type {
   WorkflowOptions,
   WorkflowResult,
 } from "./types";
-import { sleep as defaultSleep } from "./utils";
 
 export interface WorkflowDependencies {
   shell: ShellRunner;
@@ -71,7 +70,7 @@ export async function runPromptWorkflow(
   const { shell, logger } = dependencies;
   const reviewPollIntervalMs =
     dependencies.reviewPollIntervalMs ?? DEFAULT_REVIEW_POLL_INTERVAL_MS;
-  const sleep = dependencies.sleep ?? defaultSleep;
+  const sleep = dependencies.sleep ?? Bun.sleep;
   const maxUnproductivePolls = dependencies.options?.maxUnproductivePolls ?? 1;
   const git = new GitClient(shell);
   const codex = new CodexClient(shell);
