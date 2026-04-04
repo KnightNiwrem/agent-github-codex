@@ -1,13 +1,7 @@
 import { CommandExecutionError } from "./errors";
 import type { CommandResult, CommandSpec, ShellRunner } from "./types";
 
-async function readStream(
-  stream: ReadableStream<Uint8Array> | null,
-): Promise<string> {
-  if (!stream) {
-    return "";
-  }
-
+async function readStream(stream: ReadableStream<Uint8Array>): Promise<string> {
   return await new Response(stream).text();
 }
 
