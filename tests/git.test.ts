@@ -1,26 +1,20 @@
 import { describe, expect, it } from "bun:test";
 import { GitClient } from "../src/git";
-import type { CommandResult } from "../src/types";
+import type { CommandResult, CommandSpec } from "../src/types";
 import { StubShellRunner, result } from "./test-helpers";
+
+type GitCommandOptions = Omit<CommandSpec, "args" | "cwd">;
 
 type GitClientRunGitAccessor = {
   runGit: (
     cwd: string,
     args: string[],
-    options?: {
-      env?: Record<string, string>;
-      input?: string;
-      allowFailure?: boolean;
-    },
+    options?: GitCommandOptions,
   ) => Promise<CommandResult>;
   runGitText: (
     cwd: string,
     args: string[],
-    options?: {
-      env?: Record<string, string>;
-      input?: string;
-      allowFailure?: boolean;
-    },
+    options?: GitCommandOptions,
   ) => Promise<string>;
 };
 
