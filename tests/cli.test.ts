@@ -9,7 +9,7 @@ const testDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(testDirectory, "..");
 
 it("prints the package version with --version", async () => {
-  const process = Bun.spawn({
+  const childProcess = Bun.spawn({
     cmd: ["bun", "run", "src/index.ts", "--version"],
     cwd: repositoryRoot,
     stdout: "pipe",
@@ -17,9 +17,9 @@ it("prints the package version with --version", async () => {
   });
 
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-    process.exited,
+    new Response(childProcess.stdout).text(),
+    new Response(childProcess.stderr).text(),
+    childProcess.exited,
   ]);
 
   expect(exitCode).toBe(0);
