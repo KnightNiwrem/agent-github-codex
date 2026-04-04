@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CodexClient } from "../src/codex";
-import { AppError } from "../src/errors";
 import type { HarnessWorkspaceState } from "../src/harness";
 import { ConsoleLogger } from "../src/logger";
 import type {
@@ -202,9 +201,7 @@ describe("workflow guards", () => {
         harness: stubHarness(),
         sleep: async () => undefined,
       }),
-    ).rejects.toThrow(
-      new AppError("Workspace must be clean before running this CLI."),
-    );
+    ).rejects.toThrow("Workspace must be clean before running this CLI.");
 
     shell.assertComplete();
   });
@@ -226,9 +223,7 @@ describe("workflow guards", () => {
         sleep: async () => undefined,
       }),
     ).rejects.toThrow(
-      new AppError(
-        "Current branch must be main or master before running this CLI.",
-      ),
+      "Current branch must be main or master before running this CLI.",
     );
 
     shell.assertComplete();

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { AppError } from "../src/errors";
 import { GitClient } from "../src/git";
 import type { CommandResult } from "../src/types";
 import { StubShellRunner, result } from "./test-helpers";
@@ -34,8 +33,8 @@ describe("GitClient workspace status", () => {
     const shell = new StubShellRunner([result(" M src/git.ts\n")]);
     const git = new GitClient(shell);
 
-    await expect(git.ensureCleanWorkspace("/repo")).rejects.toBeInstanceOf(
-      AppError,
+    await expect(git.ensureCleanWorkspace("/repo")).rejects.toThrow(
+      "Workspace must be clean before running this CLI.",
     );
   });
 

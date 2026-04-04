@@ -1,5 +1,4 @@
 import { isAbsolute, resolve } from "node:path";
-import { AppError } from "./errors";
 import type { CommandSpec, ShellRunner } from "./types";
 
 const HARNESS_GIT_PATHS = [".agc"];
@@ -67,7 +66,7 @@ export class GitClient {
 
   async ensureCleanWorkspace(cwd: string): Promise<void> {
     if ((await this.getWorkspaceStatus(cwd)).length > 0) {
-      throw new AppError("Workspace must be clean before running this CLI.");
+      throw new Error("Workspace must be clean before running this CLI.");
     }
   }
 

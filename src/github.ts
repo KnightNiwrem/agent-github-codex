@@ -1,5 +1,4 @@
 import { ZodError, z } from "zod";
-import { AppError } from "./errors";
 import type {
   PullRequestDraft,
   PullRequestInfo,
@@ -69,11 +68,11 @@ function parseGitHubJson<T>(
     return schema.parse(JSON.parse(stdout));
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new AppError(`${errorPrefix}: invalid JSON response.`);
+      throw new Error(`${errorPrefix}: invalid JSON response.`);
     }
 
     if (error instanceof ZodError) {
-      throw new AppError(
+      throw new Error(
         `${errorPrefix}: ${z.prettifyError(error).replace(/\s+/g, " ").trim()}`,
       );
     }
