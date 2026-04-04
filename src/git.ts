@@ -3,7 +3,7 @@ import type { CommandSpec, ShellRunner } from "./types";
 
 const HARNESS_GIT_PATHS = [".agc"];
 
-type GitCommandOptions = Omit<CommandSpec, "args" | "cwd">;
+export type GitCommandOptions = Omit<CommandSpec, "args" | "cwd">;
 
 function withExcludedPaths(
   baseArgs: string[],
