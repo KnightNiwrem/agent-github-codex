@@ -1,15 +1,19 @@
 import { describe, expect, it } from "bun:test";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 describe("CLI versioning", () => {
   it("prints the package version with --version", async () => {
     const packageJsonFile = new URL("../package.json", import.meta.url);
+    const testFilePath = fileURLToPath(import.meta.url);
+    const cwd = resolve(dirname(testFilePath), "..");
     const packageJson = JSON.parse(await Bun.file(packageJsonFile).text()) as {
       version: string;
     };
     const child = Bun.spawn(
       [process.execPath, "run", "src/index.ts", "--version"],
       {
-        cwd: new URL("..", import.meta.url).pathname,
+        cwd,
         stdout: "pipe",
         stderr: "pipe",
       },

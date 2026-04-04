@@ -23,14 +23,12 @@ async function readPackageVersion(): Promise<string> {
 }
 
 const program = new Command();
-const packageVersion = await readPackageVersion();
 
 program
   .name("agc")
   .description(
     "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   )
-  .version(packageVersion)
   .option(
     "--max-unproductive-polls <count>",
     "Number of consecutive review polls with no new actionable comments before exiting; 0 means poll indefinitely",
@@ -70,6 +68,7 @@ program
   });
 
 try {
+  program.version(await readPackageVersion());
   await program.parseAsync(process.argv);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
