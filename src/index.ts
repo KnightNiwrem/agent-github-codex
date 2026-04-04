@@ -1,17 +1,36 @@
 #!/usr/bin/env bun
 
+import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
 import { runPromptWorkflow } from "./workflow";
 
+async function readPackageVersion(): Promise<string> {
+  const packageJsonFile = new URL("../package.json", import.meta.url);
+  const packageJson = JSON.parse(await readFile(packageJsonFile, "utf8")) as {
+    version?: unknown;
+  };
+
+  if (
+    typeof packageJson.version !== "string" ||
+    packageJson.version.length === 0
+  ) {
+    throw new Error("package.json must contain a non-empty version string.");
+  }
+
+  return packageJson.version;
+}
+
 const program = new Command();
+const packageVersion = await readPackageVersion();
 
 program
   .name("agc")
   .description(
     "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   )
+  .version(packageVersion)
   .option(
     "--max-unproductive-polls <count>",
     "Number of consecutive review polls with no new actionable comments before exiting; 0 means poll indefinitely",

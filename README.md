@@ -56,13 +56,16 @@ bun start -- "implement the requested change"
 
 ## CLI Options
 
-The CLI currently accepts the required prompt argument plus an optional review-loop control flag:
+The CLI accepts the required prompt argument, an optional review-loop control flag, and standard version/help output:
 
 ```bash
 agc --max-unproductive-polls 3 "implement the requested change"
+agc --version
 ```
 
 `--max-unproductive-polls` controls how many consecutive review polls with no new actionable comments are allowed before the process exits.
+
+`--version` prints the package version from `package.json`.
 
 - default: `1`
 - `0`: poll indefinitely
