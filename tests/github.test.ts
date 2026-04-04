@@ -208,13 +208,20 @@ describe("GitHubClient.listReviewComments", () => {
       {
         level: "error",
         event: "parse.github.response_failed",
-        fields: {
+        fields: expect.objectContaining({
           errorPrefix: "Failed to parse pull request review comments",
           operation: "listReviewComments",
           pullRequestNumber: 22,
           stdout: '[{"id":"bad-id","body":"comment"}]',
           error: expect.stringContaining("Invalid input"),
-        },
+          issues: expect.arrayContaining([
+            expect.objectContaining({
+              code: expect.any(String),
+              message: expect.any(String),
+              path: expect.any(String),
+            }),
+          ]),
+        }),
       },
     ]);
   });

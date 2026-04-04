@@ -90,13 +90,27 @@ function parseGitHubJson<T>(
 
     return parsed;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage =
+      error instanceof ZodError
+        ? formatZodError(error, { singleLine: true })
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    const issues =
+      error instanceof ZodError
+        ? error.issues.map((issue) => ({
+            code: issue.code,
+            path: issue.path.join("."),
+            message: issue.message,
+          }))
+        : undefined;
 
     logger?.error("parse.github.response_failed", {
       errorPrefix,
       ...(details ?? {}),
       stdout,
       error: errorMessage,
+      issues,
     });
 
     if (error instanceof SyntaxError) {
