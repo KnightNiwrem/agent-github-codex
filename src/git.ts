@@ -1,7 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 import { AppError } from "./errors";
-import type { CommandSpec } from "./types";
-import type { ShellRunner } from "./types";
+import type { CommandSpec, ShellRunner } from "./types";
 
 const HARNESS_GIT_PATHS = [".agc"];
 
@@ -24,7 +23,7 @@ export class GitClient {
     cwd: string,
     args: string[],
     options?: Omit<CommandSpec, "args" | "cwd">,
-  ) {
+  ): ReturnType<ShellRunner["run"]> {
     return this.shell.run({
       ...options,
       args: ["git", ...args],
