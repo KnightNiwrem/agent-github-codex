@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { ConsoleLogger } from "../src/logger";
 import { BunShellRunner } from "../src/shell";
+import type { JsonObject, Logger } from "../src/types";
 
 describe("ConsoleLogger", () => {
   it("emits structured JSON lines with severity, type, and data", () => {
@@ -45,29 +46,29 @@ describe("BunShellRunner", () => {
     const entries: Array<{
       level: string;
       event: string;
-      fields?: Record<string, unknown>;
+      fields?: JsonObject;
     }> = [];
-    const logger = {
-      info(event: string, fields?: Record<string, unknown>) {
+    const logger: Logger = {
+      info(event: string, fields?: JsonObject) {
         entries.push({ level: "info", event, fields });
       },
-      warn(event: string, fields?: Record<string, unknown>) {
+      warn(event: string, fields?: JsonObject) {
         entries.push({ level: "warn", event, fields });
       },
-      error(event: string, fields?: Record<string, unknown>) {
+      error(event: string, fields?: JsonObject) {
         entries.push({ level: "error", event, fields });
       },
     };
     const shell = new BunShellRunner(logger);
 
     const result = await shell.run({
-      args: ["bash", "-lc", "printf 'hello'; printf 'warn' >&2"],
+      args: ["bun", "--print", "process.stderr.write('warn'); 'hello'"],
       cwd: "/tmp",
       allowFailure: true,
     });
 
     expect(result).toEqual({
-      stdout: "hello",
+      stdout: "hello\n",
       stderr: "warn",
       exitCode: 0,
     });
@@ -76,7 +77,7 @@ describe("BunShellRunner", () => {
         level: "info",
         event: "command.start",
         fields: {
-          command: ["bash", "-lc", "printf 'hello'; printf 'warn' >&2"],
+          command: ["bun", "--print", "process.stderr.write('warn'); 'hello'"],
           cwd: "/tmp",
           allowFailure: true,
           input: undefined,
@@ -86,11 +87,11 @@ describe("BunShellRunner", () => {
         level: "info",
         event: "command.complete",
         fields: {
-          command: ["bash", "-lc", "printf 'hello'; printf 'warn' >&2"],
+          command: ["bun", "--print", "process.stderr.write('warn'); 'hello'"],
           cwd: "/tmp",
           allowFailure: true,
           exitCode: 0,
-          stdout: "hello",
+          stdout: "hello\n",
           stderr: "warn",
         },
       },

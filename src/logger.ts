@@ -1,4 +1,4 @@
-import type { JsonValue, LogFields, Logger } from "./types";
+import type { LogFields, Logger } from "./types";
 
 function inferLogType(event: string): string {
   if (event.startsWith("command.")) {
@@ -12,27 +12,6 @@ function inferLogType(event: string): string {
   return "state";
 }
 
-function normalizeValue(value: JsonValue | undefined): JsonValue | undefined {
-  if (value === undefined || value === null) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeValue(item) ?? null);
-  }
-
-  if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, entryValue]) => [
-        key,
-        normalizeValue(entryValue),
-      ]),
-    );
-  }
-
-  return value;
-}
-
 function emit(
   level: "info" | "warn" | "error",
   event: string,
@@ -43,7 +22,7 @@ function emit(
     severity: level,
     type: inferLogType(event),
     event,
-    data: normalizeValue(fields) ?? {},
+    data: fields ?? {},
   };
 
   const line = JSON.stringify(payload);

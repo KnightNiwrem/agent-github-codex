@@ -1,24 +1,24 @@
 import { describe, expect, it } from "bun:test";
 import { GitHubClient } from "../src/github";
-import type { Logger } from "../src/types";
+import type { JsonObject, Logger } from "../src/types";
 import { StubShellRunner, result } from "./test-helpers";
 
 class CaptureLogger implements Logger {
   readonly entries: Array<{
     level: "info" | "warn" | "error";
     event: string;
-    fields?: Record<string, unknown>;
+    fields?: JsonObject;
   }> = [];
 
-  info(event: string, fields?: Record<string, unknown>): void {
+  info(event: string, fields?: JsonObject): void {
     this.entries.push({ level: "info", event, fields });
   }
 
-  warn(event: string, fields?: Record<string, unknown>): void {
+  warn(event: string, fields?: JsonObject): void {
     this.entries.push({ level: "warn", event, fields });
   }
 
-  error(event: string, fields?: Record<string, unknown>): void {
+  error(event: string, fields?: JsonObject): void {
     this.entries.push({ level: "error", event, fields });
   }
 }

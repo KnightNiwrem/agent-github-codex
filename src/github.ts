@@ -84,7 +84,7 @@ function parseGitHubJson<T>(
     logger?.info("parse.github.response_parsed", {
       errorPrefix,
       ...(details ?? {}),
-      result: JSON.parse(JSON.stringify(parsed)) as JsonValue,
+      result: parsed as unknown as JsonValue,
     });
 
     return parsed;
