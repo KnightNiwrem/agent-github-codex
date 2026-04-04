@@ -1,26 +1,28 @@
 #!/usr/bin/env bun
 
-import { readFile } from "node:fs/promises";
 import { Command } from "commander";
+import packageJson from "../package.json" with { type: "json" };
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
 import { runPromptWorkflow } from "./workflow";
 
-async function readCliVersion(): Promise<string> {
-  const packageJsonUrl = new URL("../package.json", import.meta.url);
-  const packageJson = JSON.parse(
-    await readFile(packageJsonUrl, "utf8"),
-  ) as Record<string, unknown>;
+function readCliVersion(): string {
   const version = packageJson.version;
 
-  if (typeof version !== "string" || version.trim().length === 0) {
+  if (typeof version !== "string") {
     throw new Error("package.json must define a non-empty string version");
   }
 
-  return version;
+  const trimmedVersion = version.trim();
+
+  if (trimmedVersion.length === 0) {
+    throw new Error("package.json must define a non-empty string version");
+  }
+
+  return trimmedVersion;
 }
 
-export const CLI_VERSION = await readCliVersion();
+export const CLI_VERSION = readCliVersion();
 
 export function createProgram(): Command {
   const program = new Command();
