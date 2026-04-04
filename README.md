@@ -70,6 +70,15 @@ agc --max-unproductive-polls 3 "implement the requested change"
 
 An "unproductive poll" means the review loop fetched PR review comments and found no new actionable top-level comments that had not already been handled in the current run.
 
+The CLI also exposes Commander’s standard version flags:
+
+```bash
+agc --version
+agc -V
+```
+
+Both print the CLI version from `package.json`.
+
 ## Expected Auth And Setup
 
 This CLI assumes the external CLIs are already configured:
