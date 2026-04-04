@@ -54,7 +54,7 @@ Run locally from this repository:
 bun start -- "implement the requested change"
 ```
 
-Print the installed CLI version:
+Print the local CLI version from this repository:
 
 ```bash
 bun start -- --version
@@ -62,7 +62,7 @@ bun start -- --version
 
 ## CLI Options
 
-The CLI currently accepts the required prompt argument plus built-in version flags and an optional review-loop control flag:
+For normal execution, the CLI requires a prompt argument. Built-in informational flags such as `--version`, `-V`, and `--help` exit without requiring a prompt. The CLI also supports an optional review-loop control flag:
 
 ```bash
 agc --max-unproductive-polls 3 "implement the requested change"
@@ -73,7 +73,7 @@ agc --version
 agc -V
 ```
 
-`--version` and `-V` print the installed package version and exit.
+`--version` and `-V` print the CLI version and exit.
 
 `--max-unproductive-polls` controls how many consecutive review polls with no new actionable comments are allowed before the process exits.
 
