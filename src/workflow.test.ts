@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -183,7 +183,7 @@ afterEach(async () => {
 });
 
 describe("workflow guards", () => {
-  test("fails on dirty workspace", async () => {
+  it("fails on dirty workspace", async () => {
     const shell = new SequenceShellRunner([
       exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
       exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -204,7 +204,7 @@ describe("workflow guards", () => {
     shell.assertComplete();
   });
 
-  test("fails when current branch is not main or master", async () => {
+  it("fails when current branch is not main or master", async () => {
     const shell = new SequenceShellRunner([
       exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
       exact(
@@ -229,7 +229,7 @@ describe("workflow guards", () => {
     shell.assertComplete();
   });
 
-  test("ignores harness-owned .agc changes during workspace guard and no-op detection", async () => {
+  it("ignores harness-owned .agc changes during workspace guard and no-op detection", async () => {
     const shell = new SequenceShellRunner([
       exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
       exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -255,7 +255,7 @@ describe("workflow guards", () => {
   });
 });
 
-test("feature branch naming falls back deterministically", async () => {
+it("feature branch naming falls back deterministically", async () => {
   const shell = new SequenceShellRunner([
     codexOutputContains("Return only a git branch name.", ""),
   ]);
@@ -272,7 +272,7 @@ test("feature branch naming falls back deterministically", async () => {
   shell.assertComplete();
 });
 
-test("commit message generation falls back when codex output is blank", async () => {
+it("commit message generation falls back when codex output is blank", async () => {
   const shell = new SequenceShellRunner([
     codexOutputContains(
       "Return only a single conventional commit message line.",
@@ -295,7 +295,7 @@ test("commit message generation falls back when codex output is blank", async ()
   shell.assertComplete();
 });
 
-test("pull request draft generation falls back when codex output is invalid", async () => {
+it("pull request draft generation falls back when codex output is invalid", async () => {
   const shell = new SequenceShellRunner([
     codexOutputContains(
       "Draft a GitHub pull request title and body.",
@@ -330,7 +330,7 @@ test("pull request draft generation falls back when codex output is invalid", as
   shell.assertComplete();
 });
 
-test("skips commit and PR creation when codex makes no changes", async () => {
+it("skips commit and PR creation when codex makes no changes", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -367,7 +367,7 @@ test("skips commit and PR creation when codex makes no changes", async () => {
   shell.assertComplete();
 });
 
-test("stages repository changes while excluding harness-owned .agc paths", async () => {
+it("stages repository changes while excluding harness-owned .agc paths", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -447,7 +447,7 @@ test("stages repository changes while excluding harness-owned .agc paths", async
   shell.assertComplete();
 });
 
-test("review loop terminates when review fixes produce no file changes", async () => {
+it("review loop terminates when review fixes produce no file changes", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -567,7 +567,7 @@ test("review loop terminates when review fixes produce no file changes", async (
   shell.assertComplete();
 });
 
-test("review loop respects max unproductive polls before exiting", async () => {
+it("review loop respects max unproductive polls before exiting", async () => {
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
     exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
@@ -684,7 +684,7 @@ test("review loop respects max unproductive polls before exiting", async () => {
   shell.assertComplete();
 });
 
-test("ignores untrusted review comments without marking them handled", async () => {
+it("ignores untrusted review comments without marking them handled", async () => {
   const reviewPrompts: string[] = [];
   const logger = new TestLogger();
   const shell = new SequenceShellRunner([
@@ -855,7 +855,7 @@ test("ignores untrusted review comments without marking them handled", async () 
   shell.assertComplete();
 });
 
-test("handles only new actionable review comments and re-requests review after pushed fixes", async () => {
+it("handles only new actionable review comments and re-requests review after pushed fixes", async () => {
   const reviewPrompts: string[] = [];
   const shell = new SequenceShellRunner([
     exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
@@ -1045,7 +1045,7 @@ test("handles only new actionable review comments and re-requests review after p
   shell.assertComplete();
 });
 
-test("console logger emits structured JSON lines", () => {
+it("console logger emits structured JSON lines", () => {
   const logger = new ConsoleLogger();
 
   expect(() => logger.info("test.event", { ok: true })).not.toThrow();

@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, it } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,7 +21,7 @@ async function createRepositoryRoot(): Promise<string> {
   return root;
 }
 
-test("creates a default .agc layout and config", async () => {
+it("creates a default .agc layout and config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
 
@@ -37,7 +37,7 @@ test("creates a default .agc layout and config", async () => {
   });
 });
 
-test("reuses existing .agc reviewer configuration", async () => {
+it("reuses existing .agc reviewer configuration", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -67,7 +67,7 @@ test("reuses existing .agc reviewer configuration", async () => {
   ]);
 });
 
-test("requires trusted review commenters in .agc config", async () => {
+it("requires trusted review commenters in .agc config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -83,7 +83,7 @@ test("requires trusted review commenters in .agc config", async () => {
   );
 });
 
-test("rejects non-string reviewer values in .agc config", async () => {
+it("rejects non-string reviewer values in .agc config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -99,7 +99,7 @@ test("rejects non-string reviewer values in .agc config", async () => {
   );
 });
 
-test("rejects blank reviewer values in .agc config", async () => {
+it("rejects blank reviewer values in .agc config", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -115,7 +115,7 @@ test("rejects blank reviewer values in .agc config", async () => {
   );
 });
 
-test("rejects an empty trusted review commenter allowlist", async () => {
+it("rejects an empty trusted review commenter allowlist", async () => {
   const repoRoot = await createRepositoryRoot();
   const workspace = new FileSystemHarnessWorkspace();
   const configFile = join(repoRoot, ".agc", "config.json");
@@ -138,7 +138,7 @@ test("rejects an empty trusted review commenter allowlist", async () => {
   );
 });
 
-test("surfaces non-ENOENT config read failures", async () => {
+it("surfaces non-ENOENT config read failures", async () => {
   const repoRoot = await createRepositoryRoot();
   const readError = Object.assign(new Error("permission denied"), {
     code: "EACCES",
