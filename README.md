@@ -5,7 +5,7 @@
 It is designed to be executed inside an existing Git repository with a single quoted prompt:
 
 ```bash
-deer-agent "add a regression test for the PR review loop"
+agc "add a regression test for the PR review loop"
 ```
 
 The Bun CLI stays in control of the workflow and uses Codex only for bounded subtasks such as branch naming, implementation, commit text, PR text, and review-fix passes.
@@ -59,7 +59,7 @@ bun start -- "implement the requested change"
 The CLI currently accepts the required prompt argument plus an optional review-loop control flag:
 
 ```bash
-deer-agent --max-unproductive-polls 3 "implement the requested change"
+agc --max-unproductive-polls 3 "implement the requested change"
 ```
 
 `--max-unproductive-polls` controls how many consecutive review polls with no new actionable comments are allowed before the process exits.
