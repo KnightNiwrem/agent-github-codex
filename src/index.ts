@@ -1,26 +1,10 @@
 #!/usr/bin/env bun
 
-import { readFile } from "node:fs/promises";
 import { Command } from "commander";
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
+import { readPackageVersion } from "./version";
 import { runPromptWorkflow } from "./workflow";
-
-async function readPackageVersion(): Promise<string> {
-  const packageJsonFile = new URL("../package.json", import.meta.url);
-  const packageJson = JSON.parse(await readFile(packageJsonFile, "utf8")) as {
-    version?: unknown;
-  };
-
-  if (
-    typeof packageJson.version !== "string" ||
-    packageJson.version.length === 0
-  ) {
-    throw new Error("package.json must contain a non-empty version string.");
-  }
-
-  return packageJson.version;
-}
 
 const program = new Command();
 
