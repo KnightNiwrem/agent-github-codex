@@ -1,6 +1,6 @@
-# @deerdaily/codex-pr-agent
+# @deerdaily/agent-github-codex
 
-`@deerdaily/codex-pr-agent` is a globally installable Bun + TypeScript CLI that runs a deterministic Git workflow around `git`, `gh`, and `codex`.
+`@deerdaily/agent-github-codex` is a globally installable Bun + TypeScript CLI that runs a deterministic Git workflow around `git`, `gh`, and `codex`.
 
 It is designed to be executed inside an existing Git repository with a single quoted prompt:
 
@@ -39,7 +39,7 @@ The implementation was wired against locally verified help output from:
 Global install with Bun:
 
 ```bash
-bun install -g @deerdaily/codex-pr-agent
+bun install -g @deerdaily/agent-github-codex
 ```
 
 Local development install:
