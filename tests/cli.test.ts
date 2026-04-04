@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 import packageJson from "../package.json" with { type: "json" };
 
 async function runCli(args: string[]) {
-  const process = Bun.spawn({
+  const child = Bun.spawn({
     cmd: ["bun", "run", "src/index.ts", ...args],
     cwd: `${import.meta.dir}/..`,
     stdout: "pipe",
@@ -10,9 +10,9 @@ async function runCli(args: string[]) {
   });
 
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-    process.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
   ]);
 
   return {

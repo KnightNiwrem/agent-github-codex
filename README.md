@@ -57,7 +57,7 @@ bun start -- "implement the requested change"
 Print the installed CLI version:
 
 ```bash
-agc --version
+bun start -- --version
 ```
 
 ## CLI Options
