@@ -2,14 +2,39 @@ import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { CODEX_EDIT_MODE_FLAG, CODEX_TEXT_SANDBOX } from "./config";
 import {
-  coerceBranchName,
   fallbackBranchName,
   fallbackCommitMessage,
   fallbackPullRequestDraft,
-  parseDraftResponse,
 } from "./fallbacks";
 import { createHarnessTempDirectory } from "./harness";
 import type { PullRequestDraft, ReviewComment, ShellRunner } from "./types";
+
+function coerceBranchName(value: string): string {
+  const trimmed = value.trim().split(/\r?\n/, 1)[0] ?? "";
+  const normalized = trimmed
+    .replace(/^refs\/heads\//, "")
+    .replace(/[^A-Za-z0-9/_-]+/g, "-")
+    .replace(/\/+/g, "/")
+    .replace(/-+/g, "-")
+    .replace(/(^[/.]+|[/.]+$)/g, "");
+
+  return normalized;
+}
+
+function parseDraftResponse(output: string): PullRequestDraft | null {
+  const normalized = output.replace(/\r\n/g, "\n").trim();
+  const titleMatch = normalized.match(/^TITLE:\s*(.+)$/m);
+  const bodyMatch = normalized.match(/^BODY:\s*([\s\S]*)$/m);
+
+  if (!titleMatch || !bodyMatch) {
+    return null;
+  }
+
+  return {
+    title: titleMatch[1]?.trim() ?? "",
+    body: bodyMatch[1]?.trim() ?? "",
+  };
+}
 
 async function withTempOutputFile<T>(
   stateDir: string,
