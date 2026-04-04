@@ -1,5 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 import { AppError } from "./errors";
+import type { CommandSpec } from "./types";
 import type { ShellRunner } from "./types";
 
 const HARNESS_GIT_PATHS = [".agc"];
@@ -19,29 +20,46 @@ function withExcludedPaths(
 export class GitClient {
   constructor(private readonly shell: ShellRunner) {}
 
-  async getRepositoryRoot(cwd: string): Promise<string> {
-    const result = await this.shell.run({
-      args: ["git", "rev-parse", "--show-toplevel"],
+  private async runGit(
+    cwd: string,
+    args: string[],
+    options?: Omit<CommandSpec, "args" | "cwd">,
+  ) {
+    return this.shell.run({
+      ...options,
+      args: ["git", ...args],
       cwd,
     });
+  }
+
+  private getWorkspaceStatusArgs(): string[] {
+    return withExcludedPaths(["status", "--porcelain"], HARNESS_GIT_PATHS);
+  }
+
+  private async getWorkspaceStatus(cwd: string): Promise<string> {
+    const result = await this.runGit(cwd, this.getWorkspaceStatusArgs());
+
+    return result.stdout.trim();
+  }
+
+  async getRepositoryRoot(cwd: string): Promise<string> {
+    const result = await this.runGit(cwd, ["rev-parse", "--show-toplevel"]);
 
     return result.stdout.trim();
   }
 
   async getCurrentBranch(cwd: string): Promise<string> {
-    const result = await this.shell.run({
-      args: ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-      cwd,
-    });
+    const result = await this.runGit(cwd, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]);
 
     return result.stdout.trim();
   }
 
   async getGitPath(cwd: string, path: string): Promise<string> {
-    const result = await this.shell.run({
-      args: ["git", "rev-parse", "--git-path", path],
-      cwd,
-    });
+    const result = await this.runGit(cwd, ["rev-parse", "--git-path", path]);
 
     const resolvedPath = result.stdout.trim();
 
@@ -49,15 +67,7 @@ export class GitClient {
   }
 
   async ensureCleanWorkspace(cwd: string): Promise<void> {
-    const result = await this.shell.run({
-      args: withExcludedPaths(
-        ["git", "status", "--porcelain"],
-        HARNESS_GIT_PATHS,
-      ),
-      cwd,
-    });
-
-    if (result.stdout.trim().length > 0) {
+    if ((await this.getWorkspaceStatus(cwd)).length > 0) {
       throw new AppError("Workspace must be clean before running this CLI.");
     }
   }
@@ -67,67 +77,45 @@ export class GitClient {
     branch: string,
     baseBranch: string,
   ): Promise<void> {
-    await this.shell.run({
-      args: ["git", "checkout", "-b", branch, baseBranch],
-      cwd,
-    });
+    await this.runGit(cwd, ["checkout", "-b", branch, baseBranch]);
   }
 
   async checkoutBranch(cwd: string, branch: string): Promise<void> {
-    await this.shell.run({
-      args: ["git", "checkout", branch],
-      cwd,
-    });
+    await this.runGit(cwd, ["checkout", branch]);
   }
 
   async hasChanges(cwd: string): Promise<boolean> {
-    const result = await this.shell.run({
-      args: withExcludedPaths(
-        ["git", "status", "--porcelain"],
-        HARNESS_GIT_PATHS,
-      ),
-      cwd,
-    });
-
-    return result.stdout.trim().length > 0;
+    return (await this.getWorkspaceStatus(cwd)).length > 0;
   }
 
   async stageAll(cwd: string): Promise<void> {
-    await this.shell.run({
-      args: withExcludedPaths(["git", "add", "--all"], HARNESS_GIT_PATHS),
+    await this.runGit(
       cwd,
-    });
+      withExcludedPaths(["add", "--all"], HARNESS_GIT_PATHS),
+    );
   }
 
   async getStagedDiff(cwd: string): Promise<string> {
-    const result = await this.shell.run({
-      args: ["git", "diff", "--cached", "--stat"],
-      cwd,
-    });
+    const result = await this.runGit(cwd, ["diff", "--cached", "--stat"]);
 
     return result.stdout.trim();
   }
 
   async getBranchDiff(cwd: string, baseBranch: string): Promise<string> {
-    const result = await this.shell.run({
-      args: ["git", "diff", `${baseBranch}...HEAD`, "--stat"],
-      cwd,
-    });
+    const result = await this.runGit(cwd, [
+      "diff",
+      `${baseBranch}...HEAD`,
+      "--stat",
+    ]);
 
     return result.stdout.trim();
   }
 
   async commit(cwd: string, message: string): Promise<void> {
-    await this.shell.run({
-      args: ["git", "commit", "-m", message],
-      cwd,
-    });
+    await this.runGit(cwd, ["commit", "-m", message]);
   }
 
   async push(cwd: string, branch: string): Promise<void> {
-    await this.shell.run({
-      args: ["git", "push", "-u", "origin", branch],
-      cwd,
-    });
+    await this.runGit(cwd, ["push", "-u", "origin", branch]);
   }
 }
