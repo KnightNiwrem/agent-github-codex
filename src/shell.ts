@@ -73,6 +73,8 @@ export class BunShellRunner implements ShellRunner {
       this.logger?.error("command.failed", {
         command: spec.args,
         cwd: spec.cwd ?? process.cwd(),
+        allowFailure: spec.allowFailure ?? false,
+        input: spec.input,
         exitCode,
         stdout,
         stderr,

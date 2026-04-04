@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { tmpdir } from "node:os";
 import { ConsoleLogger } from "../src/logger";
 import { BunShellRunner } from "../src/shell";
 import type { JsonObject, Logger } from "../src/types";
@@ -63,7 +64,7 @@ describe("BunShellRunner", () => {
 
     const result = await shell.run({
       args: ["bun", "--print", "process.stderr.write('warn'); 'hello'"],
-      cwd: "/tmp",
+      cwd: tmpdir(),
       allowFailure: true,
     });
 
@@ -78,7 +79,7 @@ describe("BunShellRunner", () => {
         event: "command.start",
         fields: {
           command: ["bun", "--print", "process.stderr.write('warn'); 'hello'"],
-          cwd: "/tmp",
+          cwd: tmpdir(),
           allowFailure: true,
           input: undefined,
         },
@@ -88,11 +89,93 @@ describe("BunShellRunner", () => {
         event: "command.complete",
         fields: {
           command: ["bun", "--print", "process.stderr.write('warn'); 'hello'"],
-          cwd: "/tmp",
+          cwd: tmpdir(),
           allowFailure: true,
           exitCode: 0,
           stdout: "hello\n",
           stderr: "warn",
+        },
+      },
+    ]);
+  });
+
+  it("logs failed commands with the same common fields", async () => {
+    const entries: Array<{
+      level: string;
+      event: string;
+      fields?: JsonObject;
+    }> = [];
+    const logger: Logger = {
+      info(event: string, fields?: JsonObject) {
+        entries.push({ level: "info", event, fields });
+      },
+      warn(event: string, fields?: JsonObject) {
+        entries.push({ level: "warn", event, fields });
+      },
+      error(event: string, fields?: JsonObject) {
+        entries.push({ level: "error", event, fields });
+      },
+    };
+    const shell = new BunShellRunner(logger);
+
+    await expect(
+      shell.run({
+        args: [
+          "bun",
+          "--print",
+          "process.stderr.write('oops'); process.exit(2)",
+        ],
+        cwd: tmpdir(),
+        input: "ignored",
+      }),
+    ).rejects.toThrow(/^Command failed \(2\):/);
+
+    expect(entries).toEqual([
+      {
+        level: "info",
+        event: "command.start",
+        fields: {
+          command: [
+            "bun",
+            "--print",
+            "process.stderr.write('oops'); process.exit(2)",
+          ],
+          cwd: tmpdir(),
+          allowFailure: false,
+          input: "ignored",
+        },
+      },
+      {
+        level: "info",
+        event: "command.complete",
+        fields: {
+          command: [
+            "bun",
+            "--print",
+            "process.stderr.write('oops'); process.exit(2)",
+          ],
+          cwd: tmpdir(),
+          allowFailure: false,
+          exitCode: 2,
+          stdout: "",
+          stderr: "oops",
+        },
+      },
+      {
+        level: "error",
+        event: "command.failed",
+        fields: {
+          command: [
+            "bun",
+            "--print",
+            "process.stderr.write('oops'); process.exit(2)",
+          ],
+          cwd: tmpdir(),
+          allowFailure: false,
+          input: "ignored",
+          exitCode: 2,
+          stdout: "",
+          stderr: "oops",
         },
       },
     ]);
