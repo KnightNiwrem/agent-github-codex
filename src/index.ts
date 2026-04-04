@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { Command } from "commander";
+import packageJson from "../package.json" with { type: "json" };
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
 import { runPromptWorkflow } from "./workflow";
@@ -9,6 +10,7 @@ const program = new Command();
 
 program
   .name("agc")
+  .version(packageJson.version)
   .description(
     "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   )
