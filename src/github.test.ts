@@ -1,34 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { GitHubClient } from "./github";
-import type { CommandResult, CommandSpec, ShellRunner } from "./types";
-
-class StubShellRunner implements ShellRunner {
-  readonly calls: CommandSpec[] = [];
-
-  constructor(private readonly results: CommandResult[]) {}
-
-  async run(spec: CommandSpec): Promise<CommandResult> {
-    this.calls.push(spec);
-    const result = this.results.shift();
-
-    if (!result) {
-      throw new Error(`Unexpected command: ${spec.args.join(" ")}`);
-    }
-
-    return result;
-  }
-}
-
-function result(stdout = "", stderr = "", exitCode = 0): CommandResult {
-  return {
-    stdout,
-    stderr,
-    exitCode,
-  };
-}
+import { StubShellRunner, result } from "./test-helpers";
 
 describe("GitHubClient.createPullRequest", () => {
-  test("parses the PR payload with schema defaults", async () => {
+  it("parses the PR payload with schema defaults", async () => {
     const shell = new StubShellRunner([
       result(),
       result(JSON.stringify({ number: 22, url: "https://example.com/pr/22" })),
@@ -55,7 +30,7 @@ describe("GitHubClient.createPullRequest", () => {
     });
   });
 
-  test("falls back when nullable PR fields are returned as null", async () => {
+  it("falls back when nullable PR fields are returned as null", async () => {
     const shell = new StubShellRunner([
       result(),
       result(
@@ -91,7 +66,7 @@ describe("GitHubClient.createPullRequest", () => {
     });
   });
 
-  test("throws an AppError when PR payload is invalid", async () => {
+  it("throws an AppError when PR payload is invalid", async () => {
     const shell = new StubShellRunner([
       result(),
       result(JSON.stringify({ url: "https://example.com/pr/22" })),
@@ -110,7 +85,7 @@ describe("GitHubClient.createPullRequest", () => {
 });
 
 describe("GitHubClient.listReviewComments", () => {
-  test("parses slurped review comment pages", async () => {
+  it("parses slurped review comment pages", async () => {
     const shell = new StubShellRunner([
       result(
         JSON.stringify([
@@ -160,7 +135,7 @@ describe("GitHubClient.listReviewComments", () => {
     ]);
   });
 
-  test("accepts null users in review comment payloads", async () => {
+  it("accepts null users in review comment payloads", async () => {
     const shell = new StubShellRunner([
       result(
         JSON.stringify([
@@ -187,7 +162,7 @@ describe("GitHubClient.listReviewComments", () => {
     ]);
   });
 
-  test("throws an AppError when review comments are malformed", async () => {
+  it("throws an AppError when review comments are malformed", async () => {
     const shell = new StubShellRunner([
       result(JSON.stringify([{ id: "bad-id", body: "comment" }])),
     ]);
