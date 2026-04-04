@@ -13,6 +13,15 @@ type GitClientRunGitAccessor = {
       allowFailure?: boolean;
     },
   ) => Promise<CommandResult>;
+  runGitText: (
+    cwd: string,
+    args: string[],
+    options?: {
+      env?: Record<string, string>;
+      input?: string;
+      allowFailure?: boolean;
+    },
+  ) => Promise<string>;
 };
 
 describe("GitClient workspace status", () => {
@@ -73,6 +82,23 @@ describe("GitClient git command helpers", () => {
         env: { FOO: "bar" },
         input: "data",
         allowFailure: true,
+      },
+    ]);
+  });
+
+  it("trims stdout through the shared text runner", async () => {
+    const shell = new StubShellRunner([result(" value \n")]);
+    const git = new GitClient(shell);
+    const privateGit = git as unknown as GitClientRunGitAccessor;
+
+    await expect(
+      privateGit.runGitText("/repo", ["rev-parse", "--show-toplevel"]),
+    ).resolves.toBe("value");
+
+    expect(shell.calls).toEqual([
+      {
+        args: ["git", "rev-parse", "--show-toplevel"],
+        cwd: "/repo",
       },
     ]);
   });

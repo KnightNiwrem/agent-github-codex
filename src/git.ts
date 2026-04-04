@@ -30,36 +30,38 @@ export class GitClient {
     });
   }
 
+  private async runGitText(
+    cwd: string,
+    args: string[],
+    options?: Omit<CommandSpec, "args" | "cwd">,
+  ): Promise<string> {
+    const result = await this.runGit(cwd, args, options);
+
+    return result.stdout.trim();
+  }
+
   private getWorkspaceStatusArgs(): string[] {
     return withExcludedPaths(["status", "--porcelain"], HARNESS_GIT_PATHS);
   }
 
   private async getWorkspaceStatus(cwd: string): Promise<string> {
-    const result = await this.runGit(cwd, this.getWorkspaceStatusArgs());
-
-    return result.stdout.trim();
+    return this.runGitText(cwd, this.getWorkspaceStatusArgs());
   }
 
   async getRepositoryRoot(cwd: string): Promise<string> {
-    const result = await this.runGit(cwd, ["rev-parse", "--show-toplevel"]);
-
-    return result.stdout.trim();
+    return this.runGitText(cwd, ["rev-parse", "--show-toplevel"]);
   }
 
   async getCurrentBranch(cwd: string): Promise<string> {
-    const result = await this.runGit(cwd, [
-      "rev-parse",
-      "--abbrev-ref",
-      "HEAD",
-    ]);
-
-    return result.stdout.trim();
+    return this.runGitText(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
   }
 
   async getGitPath(cwd: string, path: string): Promise<string> {
-    const result = await this.runGit(cwd, ["rev-parse", "--git-path", path]);
-
-    const resolvedPath = result.stdout.trim();
+    const resolvedPath = await this.runGitText(cwd, [
+      "rev-parse",
+      "--git-path",
+      path,
+    ]);
 
     return isAbsolute(resolvedPath) ? resolvedPath : resolve(cwd, resolvedPath);
   }
@@ -94,19 +96,11 @@ export class GitClient {
   }
 
   async getStagedDiff(cwd: string): Promise<string> {
-    const result = await this.runGit(cwd, ["diff", "--cached", "--stat"]);
-
-    return result.stdout.trim();
+    return this.runGitText(cwd, ["diff", "--cached", "--stat"]);
   }
 
   async getBranchDiff(cwd: string, baseBranch: string): Promise<string> {
-    const result = await this.runGit(cwd, [
-      "diff",
-      `${baseBranch}...HEAD`,
-      "--stat",
-    ]);
-
-    return result.stdout.trim();
+    return this.runGitText(cwd, ["diff", `${baseBranch}...HEAD`, "--stat"]);
   }
 
   async commit(cwd: string, message: string): Promise<void> {
