@@ -1,18 +1,21 @@
 import { describe, expect, it } from "bun:test";
 import { GitClient } from "../src/git";
-import type { CommandResult } from "../src/types";
+import type { CommandResult, CommandSpec } from "../src/types";
 import { StubShellRunner, result } from "./test-helpers";
+
+type GitCommandOptions = Omit<CommandSpec, "args" | "cwd">;
 
 type GitClientRunGitAccessor = {
   runGit: (
     cwd: string,
     args: string[],
-    options?: {
-      env?: Record<string, string>;
-      input?: string;
-      allowFailure?: boolean;
-    },
+    options?: GitCommandOptions,
   ) => Promise<CommandResult>;
+  runGitText: (
+    cwd: string,
+    args: string[],
+    options?: GitCommandOptions,
+  ) => Promise<string>;
 };
 
 describe("GitClient workspace status", () => {
@@ -73,6 +76,23 @@ describe("GitClient git command helpers", () => {
         env: { FOO: "bar" },
         input: "data",
         allowFailure: true,
+      },
+    ]);
+  });
+
+  it("trims stdout through the shared text runner", async () => {
+    const shell = new StubShellRunner([result(" value \n")]);
+    const git = new GitClient(shell);
+    const privateGit = git as unknown as GitClientRunGitAccessor;
+
+    await expect(
+      privateGit.runGitText("/repo", ["rev-parse", "--show-toplevel"]),
+    ).resolves.toBe("value");
+
+    expect(shell.calls).toEqual([
+      {
+        args: ["git", "rev-parse", "--show-toplevel"],
+        cwd: "/repo",
       },
     ]);
   });
