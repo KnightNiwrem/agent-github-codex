@@ -272,6 +272,35 @@ it("feature branch naming falls back deterministically", async () => {
   shell.assertComplete();
 });
 
+it("feature branch naming reuses shared dash normalization", async () => {
+  const shell = new SequenceShellRunner([
+    codexOutputContains(
+      "Return only a git branch name.",
+      " refs/heads//feature///mixed   punctuation___name \nignored",
+    ),
+    exact(
+      [
+        "git",
+        "check-ref-format",
+        "--branch",
+        "feature/mixed-punctuation___name",
+      ],
+      result(),
+    ),
+  ]);
+  const client = new CodexClient(shell);
+  const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
+  temporaryDirectories.push(stateDir);
+  const branch = await client.generateBranchName(
+    "/repo",
+    "Normalize generated branch names",
+    stateDir,
+  );
+
+  expect(branch).toBe("feature/mixed-punctuation___name");
+  shell.assertComplete();
+});
+
 it("commit message generation falls back when codex output is blank", async () => {
   const shell = new SequenceShellRunner([
     codexOutputContains(

@@ -1,15 +1,17 @@
 import { createHash } from "node:crypto";
 
+export function normalizeHyphenDelimiters(value: string): string {
+  return value.replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
 export function slugSegment(value: string): string {
   const ascii = Array.from(value.normalize("NFKD"))
     .filter((character) => character.charCodeAt(0) <= 0x7f)
     .join("");
 
-  return ascii
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+  return normalizeHyphenDelimiters(
+    ascii.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+  );
 }
 
 export function normalizeWhitespace(value: string): string {

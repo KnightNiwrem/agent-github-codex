@@ -8,15 +8,16 @@ import {
 } from "./fallbacks";
 import { createHarnessTempDirectory } from "./harness";
 import type { PullRequestDraft, ReviewComment, ShellRunner } from "./types";
+import { normalizeHyphenDelimiters } from "./utils";
 
 function coerceBranchName(value: string): string {
   const trimmed = value.trim().split(/\r?\n/, 1)[0] ?? "";
-  const normalized = trimmed
-    .replace(/^refs\/heads\//, "")
-    .replace(/[^A-Za-z0-9/_-]+/g, "-")
-    .replace(/\/+/g, "/")
-    .replace(/-+/g, "-")
-    .replace(/(^[/.]+|[/.]+$)/g, "");
+  const normalized = normalizeHyphenDelimiters(
+    trimmed
+      .replace(/^refs\/heads\//, "")
+      .replace(/[^A-Za-z0-9/_-]+/g, "-")
+      .replace(/\/+/g, "/"),
+  ).replace(/(^[/.]+|[/.]+$)/g, "");
 
   return normalized;
 }
