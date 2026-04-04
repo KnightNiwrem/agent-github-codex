@@ -17,7 +17,7 @@ function coerceBranchName(value: string): string {
       .replace(/^refs\/heads\//, "")
       .replace(/[^A-Za-z0-9/_-]+/g, "-")
       .replace(/\/+/g, "/"),
-  ).replace(/(^[/.]+|[/.]+$)/g, "");
+  ).replace(/(^[\/-]+|[\/-]+$)/g, "");
 
   return normalized;
 }

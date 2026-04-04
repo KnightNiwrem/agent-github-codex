@@ -301,6 +301,27 @@ it("feature branch naming reuses shared dash normalization", async () => {
   shell.assertComplete();
 });
 
+it("feature branch naming trims hyphens exposed by slash trimming", async () => {
+  const shell = new SequenceShellRunner([
+    codexOutputContains(
+      "Return only a git branch name.",
+      " /-feature/ \nignored",
+    ),
+    exact(["git", "check-ref-format", "--branch", "feature"], result()),
+  ]);
+  const client = new CodexClient(shell);
+  const stateDir = await mkdtemp(join(tmpdir(), "agc-workflow-tests-"));
+  temporaryDirectories.push(stateDir);
+  const branch = await client.generateBranchName(
+    "/repo",
+    "Normalize generated branch names",
+    stateDir,
+  );
+
+  expect(branch).toBe("feature");
+  shell.assertComplete();
+});
+
 it("commit message generation falls back when codex output is blank", async () => {
   const shell = new SequenceShellRunner([
     codexOutputContains(
