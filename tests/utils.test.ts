@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { formatZodError } from "../src/utils";
+import { formatZodError } from "../src/zod-utils";
 
 describe("formatZodError", () => {
   it("preserves human-readable formatting by default", () => {

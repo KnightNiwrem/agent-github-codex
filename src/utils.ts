@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
 
 export function slugSegment(value: string): string {
   const ascii = Array.from(value.normalize("NFKD"))
@@ -15,19 +14,6 @@ export function slugSegment(value: string): string {
 
 export function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
-}
-
-export function formatZodError(
-  error: z.ZodError,
-  options?: { singleLine?: boolean },
-): string {
-  const formatted = z.prettifyError(error);
-
-  if (options?.singleLine) {
-    return normalizeWhitespace(formatted);
-  }
-
-  return formatted;
 }
 
 export function clip(value: string, maxLength: number): string {

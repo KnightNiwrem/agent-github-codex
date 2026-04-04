@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { HarnessConfig } from "./types";
-import { formatZodError } from "./utils";
+import { formatZodError } from "./zod-utils";
 
 interface HarnessFileSystem {
   mkdir: typeof mkdir;

@@ -5,7 +5,7 @@ import type {
   ReviewComment,
   ShellRunner,
 } from "./types";
-import { formatZodError } from "./utils";
+import { formatZodError } from "./zod-utils";
 
 const pullRequestViewSchema = z.object({
   number: z.number(),
