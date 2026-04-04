@@ -17,7 +17,7 @@ function withExcludedPaths(
   ];
 }
 
-export async function runGitCommand(
+export function runGitCommand(
   shell: ShellRunner,
   cwd: string,
   args: string[],
