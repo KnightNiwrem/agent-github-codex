@@ -55,6 +55,42 @@ describe("GitHubClient.createPullRequest", () => {
     });
   });
 
+  test("falls back when nullable PR fields are returned as null", async () => {
+    const shell = new StubShellRunner([
+      result(),
+      result(
+        JSON.stringify({
+          number: 22,
+          url: "https://example.com/pr/22",
+          title: null,
+          body: null,
+          headRefName: null,
+          baseRefName: null,
+        }),
+      ),
+    ]);
+    const github = new GitHubClient(shell);
+
+    const pullRequest = await github.createPullRequest(
+      "/repo",
+      "main",
+      "feature/zod",
+      {
+        title: "Refactor response parsing",
+        body: "Use zod schemas.",
+      },
+    );
+
+    expect(pullRequest).toEqual({
+      number: 22,
+      url: "https://example.com/pr/22",
+      title: "Refactor response parsing",
+      body: "Use zod schemas.",
+      headRefName: "feature/zod",
+      baseRefName: "main",
+    });
+  });
+
   test("throws an AppError when PR payload is invalid", async () => {
     const shell = new StubShellRunner([
       result(),
@@ -120,6 +156,33 @@ describe("GitHubClient.listReviewComments", () => {
         userLogin: "reviewer-2",
         url: undefined,
         inReplyToId: 101,
+      },
+    ]);
+  });
+
+  test("accepts null users in review comment payloads", async () => {
+    const shell = new StubShellRunner([
+      result(
+        JSON.stringify([
+          {
+            id: 103,
+            body: "Ghosted reviewer.",
+            user: null,
+          },
+        ]),
+      ),
+    ]);
+    const github = new GitHubClient(shell);
+
+    await expect(github.listReviewComments("/repo", 22)).resolves.toEqual([
+      {
+        id: 103,
+        body: "Ghosted reviewer.",
+        path: undefined,
+        line: undefined,
+        userLogin: undefined,
+        url: undefined,
+        inReplyToId: undefined,
       },
     ]);
   });

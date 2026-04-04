@@ -10,10 +10,10 @@ import type {
 const pullRequestViewSchema = z.object({
   number: z.number(),
   url: z.string(),
-  title: z.string().optional(),
-  body: z.string().optional(),
-  headRefName: z.string().optional(),
-  baseRefName: z.string().optional(),
+  title: z.string().nullish(),
+  body: z.string().nullish(),
+  headRefName: z.string().nullish(),
+  baseRefName: z.string().nullish(),
 });
 
 const reviewCommentPayloadSchema = z.object({
@@ -25,7 +25,7 @@ const reviewCommentPayloadSchema = z.object({
     .object({
       login: z.string(),
     })
-    .optional(),
+    .nullish(),
   html_url: z.string().optional(),
   in_reply_to_id: z.number().nullable().optional(),
 });
