@@ -1,5 +1,6 @@
 import { ZodError, z } from "zod";
 import type {
+  JsonObject,
   JsonValue,
   Logger,
   PullRequestDraft,
@@ -71,7 +72,7 @@ function parseGitHubJson<T>(
   stdout: string,
   schema: z.ZodType<T>,
   errorPrefix: string,
-  details?: Record<string, string | number>,
+  details?: JsonObject,
 ): T {
   logger?.info("parse.github.response_received", {
     errorPrefix,

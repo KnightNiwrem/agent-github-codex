@@ -23,6 +23,7 @@ export interface JsonObject {
 }
 export interface JsonArray extends Array<JsonValue> {}
 export type LogFields = JsonObject;
+export type LogType = "command" | "parse" | "state";
 
 export interface Logger {
   info(event: string, fields?: LogFields): void;

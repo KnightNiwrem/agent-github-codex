@@ -1,6 +1,6 @@
-import type { LogFields, Logger } from "./types";
+import type { LogFields, LogType, Logger } from "./types";
 
-function inferLogType(event: string): string {
+function inferLogType(event: string): LogType {
   if (event.startsWith("command.")) {
     return "command";
   }
