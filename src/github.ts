@@ -1,3 +1,4 @@
+import { ZodError, z } from "zod";
 import { AppError } from "./errors";
 import type {
   PullRequestDraft,
@@ -6,48 +7,79 @@ import type {
   ShellRunner,
 } from "./types";
 
-function asArray<T>(value: unknown): T[] {
-  if (!Array.isArray(value)) {
-    return [];
+const pullRequestViewSchema = z.object({
+  number: z.number(),
+  url: z.string(),
+  title: z.string().nullish(),
+  body: z.string().nullish(),
+  headRefName: z.string().nullish(),
+  baseRefName: z.string().nullish(),
+});
+
+const reviewCommentPayloadSchema = z.object({
+  id: z.number(),
+  body: z.string().catch(""),
+  path: z.string().optional(),
+  line: z.number().optional(),
+  user: z
+    .object({
+      login: z.string(),
+    })
+    .nullish(),
+  html_url: z.string().optional(),
+  in_reply_to_id: z.number().nullable().optional(),
+});
+
+const reviewCommentPageSchema = z.array(reviewCommentPayloadSchema);
+type ReviewCommentPayload = z.infer<typeof reviewCommentPayloadSchema>;
+
+function flattenReviewCommentPayload(
+  payload: ReviewCommentPayload[] | ReviewCommentPayload[][],
+): ReviewCommentPayload[] {
+  const firstItem = payload[0];
+
+  if (Array.isArray(firstItem)) {
+    return payload.flat();
   }
 
-  return value as T[];
+  return payload as ReviewCommentPayload[];
 }
 
-function normalizeComments(payload: unknown): ReviewComment[] {
-  const pages = asArray<unknown>(payload);
-  const rawComments = Array.isArray(pages[0])
-    ? pages.flatMap((page) => asArray<Record<string, unknown>>(page))
-    : asArray<Record<string, unknown>>(payload);
+const reviewCommentPagesSchema = z
+  .union([reviewCommentPageSchema, z.array(reviewCommentPageSchema)])
+  .transform((payload) => flattenReviewCommentPayload(payload))
+  .transform((comments): ReviewComment[] =>
+    comments.map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      path: comment.path,
+      line: comment.line,
+      userLogin: comment.user?.login,
+      url: comment.html_url,
+      inReplyToId: comment.in_reply_to_id,
+    })),
+  );
 
-  return rawComments
-    .map((comment): ReviewComment | null => {
-      const id = typeof comment.id === "number" ? comment.id : null;
+function parseGitHubJson<T>(
+  stdout: string,
+  schema: z.ZodType<T>,
+  errorPrefix: string,
+): T {
+  try {
+    return schema.parse(JSON.parse(stdout));
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new AppError(`${errorPrefix}: invalid JSON response.`);
+    }
 
-      if (!id) {
-        return null;
-      }
+    if (error instanceof ZodError) {
+      throw new AppError(
+        `${errorPrefix}: ${z.prettifyError(error).replace(/\s+/g, " ").trim()}`,
+      );
+    }
 
-      return {
-        id,
-        body: typeof comment.body === "string" ? comment.body : "",
-        path: typeof comment.path === "string" ? comment.path : undefined,
-        line: typeof comment.line === "number" ? comment.line : undefined,
-        userLogin:
-          comment.user &&
-          typeof comment.user === "object" &&
-          "login" in comment.user
-            ? String(comment.user.login)
-            : undefined,
-        url:
-          typeof comment.html_url === "string" ? comment.html_url : undefined,
-        inReplyToId:
-          typeof comment.in_reply_to_id === "number"
-            ? comment.in_reply_to_id
-            : undefined,
-      };
-    })
-    .filter((comment): comment is ReviewComment => comment !== null);
+    throw error;
+  }
 }
 
 export class GitHubClient {
@@ -87,34 +119,19 @@ export class GitHubClient {
       ],
       cwd,
     });
-    const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-    const number = typeof payload.number === "number" ? payload.number : null;
-    const url = typeof payload.url === "string" ? payload.url : null;
-    const title =
-      typeof payload.title === "string" ? payload.title : draft.title;
-    const body = typeof payload.body === "string" ? payload.body : draft.body;
-    const resolvedHead =
-      typeof payload.headRefName === "string"
-        ? payload.headRefName
-        : headBranch;
-    const resolvedBase =
-      typeof payload.baseRefName === "string"
-        ? payload.baseRefName
-        : baseBranch;
-
-    if (!number || !url) {
-      throw new AppError(
-        "Failed to resolve pull request details after creation.",
-      );
-    }
+    const payload = parseGitHubJson(
+      result.stdout,
+      pullRequestViewSchema,
+      "Failed to resolve pull request details after creation",
+    );
 
     return {
-      number,
-      url,
-      title,
-      body,
-      headRefName: resolvedHead,
-      baseRefName: resolvedBase,
+      number: payload.number,
+      url: payload.url,
+      title: payload.title ?? draft.title,
+      body: payload.body ?? draft.body,
+      headRefName: payload.headRefName ?? headBranch,
+      baseRefName: payload.baseRefName ?? baseBranch,
     };
   }
 
@@ -154,8 +171,10 @@ export class GitHubClient {
       ],
       cwd,
     });
-    const payload = JSON.parse(result.stdout) as unknown;
-
-    return normalizeComments(payload);
+    return parseGitHubJson(
+      result.stdout,
+      reviewCommentPagesSchema,
+      "Failed to parse pull request review comments",
+    );
   }
 }
