@@ -30,7 +30,3 @@ export function clip(value: string, maxLength: number): string {
 export function stableHash(value: string, length = 8): string {
   return createHash("sha256").update(value).digest("hex").slice(0, length);
 }
-
-export function sleep(ms: number): Promise<void> {
-  return Bun.sleep(ms);
-}
