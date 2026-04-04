@@ -5,6 +5,7 @@ import type {
   ReviewComment,
   ShellRunner,
 } from "./types";
+import { formatZodError } from "./utils";
 
 const pullRequestViewSchema = z.object({
   number: z.number(),
@@ -73,7 +74,7 @@ function parseGitHubJson<T>(
 
     if (error instanceof ZodError) {
       throw new Error(
-        `${errorPrefix}: ${z.prettifyError(error).replace(/\s+/g, " ").trim()}`,
+        `${errorPrefix}: ${formatZodError(error, { singleLine: true })}`,
       );
     }
 
