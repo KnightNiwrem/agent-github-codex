@@ -1,6 +1,27 @@
 import { describe, expect, it } from "bun:test";
 import { GitHubClient } from "../src/github";
+import type { JsonObject, Logger } from "../src/types";
 import { StubShellRunner, result } from "./test-helpers";
+
+class CaptureLogger implements Logger {
+  readonly entries: Array<{
+    level: "info" | "warn" | "error";
+    event: string;
+    fields?: JsonObject;
+  }> = [];
+
+  info(event: string, fields?: JsonObject): void {
+    this.entries.push({ level: "info", event, fields });
+  }
+
+  warn(event: string, fields?: JsonObject): void {
+    this.entries.push({ level: "warn", event, fields });
+  }
+
+  error(event: string, fields?: JsonObject): void {
+    this.entries.push({ level: "error", event, fields });
+  }
+}
 
 describe("GitHubClient.createPullRequest", () => {
   it("parses the PR payload with schema defaults", async () => {
@@ -166,11 +187,43 @@ describe("GitHubClient.listReviewComments", () => {
     const shell = new StubShellRunner([
       result(JSON.stringify([{ id: "bad-id", body: "comment" }])),
     ]);
-    const github = new GitHubClient(shell);
+    const logger = new CaptureLogger();
+    const github = new GitHubClient(shell, logger);
 
     await expect(github.listReviewComments("/repo", 22)).rejects.toThrow(
       /^Failed to parse pull request review comments:/,
     );
+
+    expect(logger.entries).toEqual([
+      {
+        level: "info",
+        event: "parse.github.response_received",
+        fields: {
+          errorPrefix: "Failed to parse pull request review comments",
+          operation: "listReviewComments",
+          pullRequestNumber: 22,
+          stdout: '[{"id":"bad-id","body":"comment"}]',
+        },
+      },
+      {
+        level: "error",
+        event: "parse.github.response_failed",
+        fields: expect.objectContaining({
+          errorPrefix: "Failed to parse pull request review comments",
+          operation: "listReviewComments",
+          pullRequestNumber: 22,
+          stdout: '[{"id":"bad-id","body":"comment"}]',
+          error: expect.stringContaining("Invalid input"),
+          issues: expect.arrayContaining([
+            expect.objectContaining({
+              code: expect.any(String),
+              message: expect.any(String),
+              path: expect.any(String),
+            }),
+          ]),
+        }),
+      },
+    ]);
   });
 });
 

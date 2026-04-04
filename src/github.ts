@@ -1,5 +1,8 @@
 import { ZodError, z } from "zod";
 import type {
+  JsonObject,
+  JsonValue,
+  Logger,
   PullRequestDraft,
   PullRequestInfo,
   ReviewComment,
@@ -65,13 +68,51 @@ const reviewCommentPagesSchema = z
   );
 
 function parseGitHubJson<T>(
+  logger: Logger | undefined,
   stdout: string,
   schema: z.ZodType<T>,
   errorPrefix: string,
+  details?: JsonObject,
 ): T {
+  logger?.info("parse.github.response_received", {
+    errorPrefix,
+    ...(details ?? {}),
+    stdout,
+  });
+
   try {
-    return schema.parse(JSON.parse(stdout));
+    const parsed = schema.parse(JSON.parse(stdout));
+    logger?.info("parse.github.response_parsed", {
+      errorPrefix,
+      ...(details ?? {}),
+      result: parsed as unknown as JsonValue,
+    });
+
+    return parsed;
   } catch (error) {
+    const errorMessage =
+      error instanceof ZodError
+        ? formatZodError(error, { singleLine: true })
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    const issues =
+      error instanceof ZodError
+        ? error.issues.map((issue) => ({
+            code: issue.code,
+            path: issue.path.join("."),
+            message: issue.message,
+          }))
+        : undefined;
+
+    logger?.error("parse.github.response_failed", {
+      errorPrefix,
+      ...(details ?? {}),
+      stdout,
+      error: errorMessage,
+      issues,
+    });
+
     if (error instanceof SyntaxError) {
       throw new Error(`${errorPrefix}: invalid JSON response.`);
     }
@@ -87,7 +128,10 @@ function parseGitHubJson<T>(
 }
 
 export class GitHubClient {
-  constructor(private readonly shell: ShellRunner) {}
+  constructor(
+    private readonly shell: ShellRunner,
+    private readonly logger?: Logger,
+  ) {}
 
   async createPullRequest(
     cwd: string,
@@ -124,9 +168,15 @@ export class GitHubClient {
       cwd,
     });
     const payload = parseGitHubJson(
+      this.logger,
       result.stdout,
       pullRequestViewSchema,
       "Failed to resolve pull request details after creation",
+      {
+        operation: "createPullRequest",
+        headBranch,
+        baseBranch,
+      },
     );
 
     return {
@@ -167,9 +217,13 @@ export class GitHubClient {
       cwd,
     });
     const payload = parseGitHubJson(
+      this.logger,
       result.stdout,
       viewerSchema,
       "Failed to parse authenticated GitHub user",
+      {
+        operation: "getCurrentUserLogin",
+      },
     );
 
     return payload.login;
@@ -190,9 +244,14 @@ export class GitHubClient {
       cwd,
     });
     return parseGitHubJson(
+      this.logger,
       result.stdout,
       reviewCommentPagesSchema,
       "Failed to parse pull request review comments",
+      {
+        operation: "listReviewComments",
+        pullRequestNumber,
+      },
     );
   }
 }

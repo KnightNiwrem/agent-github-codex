@@ -9,6 +9,7 @@ import { ConsoleLogger } from "../src/logger";
 import type {
   CommandResult,
   CommandSpec,
+  JsonObject,
   Logger,
   ShellRunner,
 } from "../src/types";
@@ -134,18 +135,17 @@ function codexEditContains(
 }
 
 class TestLogger implements Logger {
-  readonly entries: Array<{ event: string; fields?: Record<string, unknown> }> =
-    [];
+  readonly entries: Array<{ event: string; fields?: JsonObject }> = [];
 
-  info(event: string, fields?: Record<string, unknown>): void {
+  info(event: string, fields?: JsonObject): void {
     this.entries.push({ event, fields });
   }
 
-  warn(event: string, fields?: Record<string, unknown>): void {
+  warn(event: string, fields?: JsonObject): void {
     this.entries.push({ event, fields });
   }
 
-  error(event: string, fields?: Record<string, unknown>): void {
+  error(event: string, fields?: JsonObject): void {
     this.entries.push({ event, fields });
   }
 }
@@ -1096,7 +1096,27 @@ it("handles only new actionable review comments and re-requests review after pus
 });
 
 it("console logger emits structured JSON lines", () => {
-  const logger = new ConsoleLogger();
+  const originalLog = console.log;
+  const calls: unknown[][] = [];
+  console.log = (...args: unknown[]) => {
+    calls.push(args);
+  };
 
-  expect(() => logger.info("test.event", { ok: true })).not.toThrow();
+  try {
+    const logger = new ConsoleLogger();
+    expect(() => logger.info("test.event", { ok: true })).not.toThrow();
+  } finally {
+    console.log = originalLog;
+  }
+
+  expect(calls).toHaveLength(1);
+  const [line] = calls[0] ?? [];
+  expect(JSON.parse(String(line))).toMatchObject({
+    severity: "info",
+    type: "state",
+    event: "test.event",
+    data: {
+      ok: true,
+    },
+  });
 });

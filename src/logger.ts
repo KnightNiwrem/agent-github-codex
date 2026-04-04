@@ -1,4 +1,16 @@
-import type { LogFields, Logger } from "./types";
+import type { LogFields, LogType, Logger } from "./types";
+
+function inferLogType(event: string): LogType {
+  if (event.startsWith("command.")) {
+    return "command";
+  }
+
+  if (event.startsWith("parse.")) {
+    return "parse";
+  }
+
+  return "state";
+}
 
 function emit(
   level: "info" | "warn" | "error",
@@ -6,10 +18,11 @@ function emit(
   fields?: LogFields,
 ): void {
   const payload = {
-    ...fields,
     timestamp: new Date().toISOString(),
-    level,
+    severity: level,
+    type: inferLogType(event),
     event,
+    data: fields ?? {},
   };
 
   const line = JSON.stringify(payload);

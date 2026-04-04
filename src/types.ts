@@ -16,9 +16,14 @@ export interface ShellRunner {
   run(spec: CommandSpec): Promise<CommandResult>;
 }
 
-export interface LogFields {
-  [key: string]: string | number | boolean | null | undefined;
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+export interface JsonObject {
+  [key: string]: JsonValue | undefined;
 }
+export interface JsonArray extends Array<JsonValue> {}
+export type LogFields = JsonObject;
+export type LogType = "command" | "parse" | "state";
 
 export interface Logger {
   info(event: string, fields?: LogFields): void;
