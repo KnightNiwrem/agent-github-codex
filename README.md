@@ -105,7 +105,13 @@ The harness creates and manages this layout:
 ```json
 {
   "pullRequestReviewers": ["@copilot"],
-  "trustedReviewCommenters": ["@copilot"]
+  "trustedReviewCommenters": [
+    "@copilot",
+    "@coderabbitai[bot]",
+    "@cubic-dev-ai[bot]",
+    "@gemini-code-assist[bot]",
+    "@<authenticated-gh-user>"
+  ]
 }
 ```
 
@@ -116,6 +122,14 @@ The harness creates and manages this layout:
 - values are trimmed
 - leading `@` characters are ignored
 - comparisons are case-insensitive against the GitHub review comment `user.login`
+
+On first run, the harness resolves `@<authenticated-gh-user>` by calling:
+
+```bash
+gh api user
+```
+
+That keeps the default trust list aligned with the GitHub identity authenticated in the local `gh` session instead of hard-coding a specific maintainer login.
 
 `trustedReviewCommenters` is required in `.agc/config.json`.
 

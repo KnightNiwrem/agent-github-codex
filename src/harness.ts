@@ -10,6 +10,10 @@ interface HarnessFileSystem {
   writeFile: typeof writeFile;
 }
 
+interface HarnessDependencies extends HarnessFileSystem {
+  resolveDefaultConfig?: () => Promise<HarnessConfig>;
+}
+
 export interface HarnessLayout {
   rootDir: string;
   stateDir: string;
@@ -20,20 +24,36 @@ export interface HarnessWorkspaceState extends HarnessLayout {
   config: HarnessConfig;
 }
 
-const DEFAULT_CONFIG: HarnessConfig = {
-  pullRequestReviewers: ["@copilot"],
-  trustedReviewCommenters: ["@copilot"],
-};
+const DEFAULT_PULL_REQUEST_REVIEWERS = ["@copilot"];
+const DEFAULT_TRUSTED_REVIEW_COMMENTERS = [
+  "@copilot",
+  "@coderabbitai[bot]",
+  "@cubic-dev-ai[bot]",
+  "@gemini-code-assist[bot]",
+];
 
 const harnessConfigSchema = z.object({
   pullRequestReviewers: z.array(z.string().trim().min(1)).min(1),
   trustedReviewCommenters: z.array(z.string().trim().min(1)).min(1),
 });
 
-function cloneDefaultConfig(): HarnessConfig {
+export function buildDefaultHarnessConfig(
+  currentUserLogin: string,
+): HarnessConfig {
+  const normalizedCurrentUserLogin = currentUserLogin.trim().replace(/^@+/, "");
+
+  if (normalizedCurrentUserLogin.length === 0) {
+    throw new Error("Failed to resolve authenticated GitHub user login.");
+  }
+
   return {
-    pullRequestReviewers: [...DEFAULT_CONFIG.pullRequestReviewers],
-    trustedReviewCommenters: [...DEFAULT_CONFIG.trustedReviewCommenters],
+    pullRequestReviewers: [...DEFAULT_PULL_REQUEST_REVIEWERS],
+    trustedReviewCommenters: [
+      ...new Set([
+        ...DEFAULT_TRUSTED_REVIEW_COMMENTERS,
+        `@${normalizedCurrentUserLogin}`,
+      ]),
+    ],
   };
 }
 
@@ -67,6 +87,7 @@ function normalizeConfig(value: unknown): HarnessConfig {
 async function ensureConfigFile(
   path: string,
   fileSystem: Pick<HarnessFileSystem, "readFile" | "writeFile">,
+  resolveDefaultConfig: () => Promise<HarnessConfig>,
 ): Promise<HarnessConfig> {
   let existing: string | null;
 
@@ -81,12 +102,13 @@ async function ensureConfigFile(
   }
 
   if (existing === null) {
+    const defaultConfig = normalizeConfig(await resolveDefaultConfig());
     await fileSystem.writeFile(
       path,
-      `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`,
+      `${JSON.stringify(defaultConfig, null, 2)}\n`,
       "utf8",
     );
-    return cloneDefaultConfig();
+    return defaultConfig;
   }
 
   let parsed: unknown;
@@ -108,19 +130,27 @@ export async function createHarnessTempDirectory(
 }
 
 export class FileSystemHarnessWorkspace {
-  constructor(
-    private readonly fileSystem: HarnessFileSystem = {
-      mkdir,
-      readFile,
-      writeFile,
-    },
-  ) {}
+  private readonly dependencies: HarnessDependencies;
+
+  constructor(dependencies: Partial<HarnessDependencies> = {}) {
+    this.dependencies = {
+      mkdir: dependencies.mkdir ?? mkdir,
+      readFile: dependencies.readFile ?? readFile,
+      writeFile: dependencies.writeFile ?? writeFile,
+      resolveDefaultConfig: dependencies.resolveDefaultConfig,
+    };
+  }
 
   async ensure(repoRoot: string): Promise<HarnessWorkspaceState> {
     const layout = defaultLayout(repoRoot);
 
-    await this.fileSystem.mkdir(layout.stateDir, { recursive: true });
-    const config = await ensureConfigFile(layout.configFile, this.fileSystem);
+    await this.dependencies.mkdir(layout.stateDir, { recursive: true });
+    const config = await ensureConfigFile(
+      layout.configFile,
+      this.dependencies,
+      this.dependencies.resolveDefaultConfig ??
+        (async () => buildDefaultHarnessConfig("copilot")),
+    );
 
     return {
       ...layout,

@@ -1,8 +1,11 @@
 import { afterEach, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FileSystemHarnessWorkspace } from "../src/harness";
+import {
+  FileSystemHarnessWorkspace,
+  buildDefaultHarnessConfig,
+} from "../src/harness";
 
 const temporaryDirectories: string[] = [];
 
@@ -29,11 +32,60 @@ it("creates a default .agc layout and config", async () => {
   expect(state.rootDir).toBe(join(repoRoot, ".agc"));
   expect(state.stateDir).toBe(join(repoRoot, ".agc", "state"));
   expect(state.config.pullRequestReviewers).toEqual(["@copilot"]);
-  expect(state.config.trustedReviewCommenters).toEqual(["@copilot"]);
+  expect(state.config.trustedReviewCommenters).toEqual([
+    "@copilot",
+    "@coderabbitai[bot]",
+    "@cubic-dev-ai[bot]",
+    "@gemini-code-assist[bot]",
+  ]);
   expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
     pullRequestReviewers: ["@copilot"],
-    trustedReviewCommenters: ["@copilot"],
+    trustedReviewCommenters: [
+      "@copilot",
+      "@coderabbitai[bot]",
+      "@cubic-dev-ai[bot]",
+      "@gemini-code-assist[bot]",
+    ],
   });
+});
+
+it("builds the default config with the authenticated GitHub user", () => {
+  expect(buildDefaultHarnessConfig("KnightNiwrem")).toEqual({
+    pullRequestReviewers: ["@copilot"],
+    trustedReviewCommenters: [
+      "@copilot",
+      "@coderabbitai[bot]",
+      "@cubic-dev-ai[bot]",
+      "@gemini-code-assist[bot]",
+      "@KnightNiwrem",
+    ],
+  });
+});
+
+it("uses the injected default config resolver when creating .agc/config.json", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace({
+    mkdir,
+    readFile,
+    writeFile,
+    resolveDefaultConfig: async () => buildDefaultHarnessConfig("KnightNiwrem"),
+  });
+
+  const state = await workspace.ensure(repoRoot);
+
+  expect(state.config).toEqual({
+    pullRequestReviewers: ["@copilot"],
+    trustedReviewCommenters: [
+      "@copilot",
+      "@coderabbitai[bot]",
+      "@cubic-dev-ai[bot]",
+      "@gemini-code-assist[bot]",
+      "@KnightNiwrem",
+    ],
+  });
+  expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual(
+    state.config,
+  );
 });
 
 it("reuses existing .agc reviewer configuration", async () => {
