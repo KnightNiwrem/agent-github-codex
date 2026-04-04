@@ -1,7 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { AppError } from "./errors";
 import type { HarnessConfig } from "./types";
 
 interface HarnessFileSystem {
@@ -53,7 +52,7 @@ function normalizeConfig(value: unknown): HarnessConfig {
   const parsed = harnessConfigSchema.safeParse(value);
 
   if (!parsed.success) {
-    throw new AppError(
+    throw new Error(
       `Invalid .agc/config.json: ${z.prettifyError(parsed.error)}`,
     );
   }
@@ -94,9 +93,7 @@ async function ensureConfigFile(
   try {
     parsed = JSON.parse(existing);
   } catch {
-    throw new AppError(
-      "Invalid .agc/config.json: file must contain valid JSON.",
-    );
+    throw new Error("Invalid .agc/config.json: file must contain valid JSON.");
   }
 
   return normalizeConfig(parsed);

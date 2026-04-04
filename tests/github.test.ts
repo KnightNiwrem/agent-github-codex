@@ -66,7 +66,7 @@ describe("GitHubClient.createPullRequest", () => {
     });
   });
 
-  it("throws an AppError when PR payload is invalid", async () => {
+  it("throws when PR payload is invalid", async () => {
     const shell = new StubShellRunner([
       result(),
       result(JSON.stringify({ url: "https://example.com/pr/22" })),
@@ -162,7 +162,7 @@ describe("GitHubClient.listReviewComments", () => {
     ]);
   });
 
-  it("throws an AppError when review comments are malformed", async () => {
+  it("throws when review comments are malformed", async () => {
     const shell = new StubShellRunner([
       result(JSON.stringify([{ id: "bad-id", body: "comment" }])),
     ]);

@@ -3,7 +3,6 @@ import {
   ALLOWED_BASE_BRANCHES,
   DEFAULT_REVIEW_POLL_INTERVAL_MS,
 } from "./config";
-import { AppError } from "./errors";
 import { GitClient } from "./git";
 import { GitHubClient } from "./github";
 import type { HarnessWorkspaceState } from "./harness";
@@ -83,7 +82,7 @@ export async function runPromptWorkflow(
   const baseBranch = await git.getCurrentBranch(repoRoot);
 
   if (!ALLOWED_BASE_BRANCHES.has(baseBranch)) {
-    throw new AppError(
+    throw new Error(
       "Current branch must be main or master before running this CLI.",
     );
   }

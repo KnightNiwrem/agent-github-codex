@@ -1,12 +1,5 @@
 import type { CommandResult } from "./types";
 
-export class AppError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AppError";
-  }
-}
-
 export class CommandExecutionError extends Error {
   readonly command: string[];
   readonly result: CommandResult;
