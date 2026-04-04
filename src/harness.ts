@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { HarnessConfig } from "./types";
+import { formatZodError } from "./zod-utils";
 
 interface HarnessFileSystem {
   mkdir: typeof mkdir;
@@ -53,7 +54,7 @@ function normalizeConfig(value: unknown): HarnessConfig {
 
   if (!parsed.success) {
     throw new Error(
-      `Invalid .agc/config.json: ${z.prettifyError(parsed.error)}`,
+      `Invalid .agc/config.json: ${formatZodError(parsed.error)}`,
     );
   }
 

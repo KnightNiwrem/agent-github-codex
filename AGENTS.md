@@ -55,6 +55,7 @@
 - Branch from `main` using descriptive names (e.g., `feature/<slug>` or `fix/<slug>`).
 - Keep commits atomic with conventional prefixes (`feat:`, `fix:`, `chore:`, etc.).
 - Include evidence (test output, screenshots, logs) when opening PRs; do not ship with failing quality checks.
+- When re-requesting Copilot review, use the GitHub CLI reviewer flow (`gh pr edit <number> --add-reviewer @copilot`) instead of PR comments.
 - Scan diffs for secrets before committing or pushing.
 
 ## Agent Playbook
