@@ -89,10 +89,8 @@ export class GitClient {
   }
 
   async stageAll(cwd: string): Promise<void> {
-    await this.runGit(
-      cwd,
-      withExcludedPaths(["add", "--all"], HARNESS_GIT_PATHS),
-    );
+    await this.runGit(cwd, ["add", "--all", "--", "."]);
+    await this.runGit(cwd, ["reset", "--", ...HARNESS_GIT_PATHS]);
   }
 
   async getStagedDiff(cwd: string): Promise<string> {

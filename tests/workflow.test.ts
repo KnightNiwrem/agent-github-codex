@@ -26,14 +26,8 @@ const gitStatusExcludingHarness = [
   ".",
   ":(exclude).agc",
 ];
-const gitAddExcludingHarness = [
-  "git",
-  "add",
-  "--all",
-  "--",
-  ".",
-  ":(exclude).agc",
-];
+const gitAddExcludingHarness = ["git", "add", "--all", "--", "."];
+const gitResetHarnessPaths = ["git", "reset", "--", ".agc"];
 
 interface Step {
   match(args: string[]): boolean;
@@ -428,6 +422,7 @@ it("stages repository changes while excluding harness-owned .agc paths", async (
     codexEditContains("Implement the requested change in this repository."),
     exact(gitStatusExcludingHarness, result(" M README.md\n")),
     exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
     exact(["git", "diff", "--cached", "--stat"], result(" README.md | 2 +-\n")),
     codexOutputContains(
       "Return only a single conventional commit message line.",
@@ -514,6 +509,7 @@ it("review loop terminates when review fixes produce no file changes", async () 
     codexEditContains("Implement the requested change in this repository."),
     exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
     exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -634,6 +630,7 @@ it("review loop respects max unproductive polls before exiting", async () => {
     codexEditContains("Implement the requested change in this repository."),
     exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
     exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -756,6 +753,7 @@ it("ignores untrusted review comments without marking them handled", async () =>
     codexEditContains("Implement the requested change in this repository."),
     exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
     exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -923,6 +921,7 @@ it("handles only new actionable review comments and re-requests review after pus
     codexEditContains("Implement the requested change in this repository."),
     exact(gitStatusExcludingHarness, result(" M src/index.ts\n")),
     exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/index.ts | 2 +-\n"),
@@ -1010,6 +1009,7 @@ it("handles only new actionable review comments and re-requests review after pus
     ),
     exact(gitStatusExcludingHarness, result(" M src/workflow.ts\n")),
     exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
     exact(
       ["git", "diff", "--cached", "--stat"],
       result(" src/workflow.ts | 4 ++--\n"),

@@ -141,7 +141,7 @@ The automated workflow treats `.agc/` as harness-owned state:
 
 - preflight clean-workspace checks ignore `.agc/`
 - no-op detection ignores `.agc/`
-- the workflow's `git add --all` step excludes `.agc/`
+- the workflow stages repository changes first, then unstages `.agc/`
 
 That keeps first-run bootstrap and existing local harness state from blocking normal runs or being swept into automated PR commits. If a repository wants to track `.agc/config.json`, commit that file deliberately outside the automated workflow.
 
@@ -165,7 +165,7 @@ Given a single prompt argument, the CLI runs this sequence:
 8. Create the branch from the current base branch with `git checkout -b <branch> <base>`.
 9. Invoke `codex exec` non-interactively to implement the user request.
 10. If no files changed outside `.agc/`, stop cleanly without committing or opening a PR.
-11. If files changed, stage repository changes with `git add --all -- . ':(exclude).agc'`.
+11. If files changed, stage repository changes with `git add --all -- .`, then unstage `.agc/` with `git reset -- .agc`.
 12. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
 13. Commit and push the branch.
 14. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
