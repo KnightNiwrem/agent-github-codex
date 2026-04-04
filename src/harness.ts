@@ -102,16 +102,13 @@ async function ensureConfigFile(
   }
 
   if (existing === null) {
-    const defaultConfig = await resolveDefaultConfig();
+    const defaultConfig = normalizeConfig(await resolveDefaultConfig());
     await fileSystem.writeFile(
       path,
       `${JSON.stringify(defaultConfig, null, 2)}\n`,
       "utf8",
     );
-    return {
-      pullRequestReviewers: [...defaultConfig.pullRequestReviewers],
-      trustedReviewCommenters: [...defaultConfig.trustedReviewCommenters],
-    };
+    return defaultConfig;
   }
 
   let parsed: unknown;
