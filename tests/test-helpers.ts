@@ -1,4 +1,4 @@
-import type { CommandResult, CommandSpec, ShellRunner } from "./types";
+import type { CommandResult, CommandSpec, ShellRunner } from "../src/types";
 
 export class StubShellRunner implements ShellRunner {
   readonly calls: CommandSpec[] = [];

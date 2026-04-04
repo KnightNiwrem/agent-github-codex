@@ -3,12 +3,17 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CodexClient } from "./codex";
-import { AppError } from "./errors";
-import type { HarnessWorkspaceState } from "./harness";
-import { ConsoleLogger } from "./logger";
-import type { CommandResult, CommandSpec, Logger, ShellRunner } from "./types";
-import { runPromptWorkflow } from "./workflow";
+import { CodexClient } from "../src/codex";
+import { AppError } from "../src/errors";
+import type { HarnessWorkspaceState } from "../src/harness";
+import { ConsoleLogger } from "../src/logger";
+import type {
+  CommandResult,
+  CommandSpec,
+  Logger,
+  ShellRunner,
+} from "../src/types";
+import { runPromptWorkflow } from "../src/workflow";
 
 const testFileDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(testFileDirectory, "..");

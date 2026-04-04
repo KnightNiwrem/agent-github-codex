@@ -2,8 +2,8 @@ import { afterEach, expect, it } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AppError } from "./errors";
-import { FileSystemHarnessWorkspace } from "./harness";
+import { AppError } from "../src/errors";
+import { FileSystemHarnessWorkspace } from "../src/harness";
 
 const temporaryDirectories: string[] = [];
 

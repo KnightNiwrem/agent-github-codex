@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { GitHubClient } from "./github";
+import { GitHubClient } from "../src/github";
 import { StubShellRunner, result } from "./test-helpers";
 
 describe("GitHubClient.createPullRequest", () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { AppError } from "./errors";
-import { GitClient } from "./git";
+import { AppError } from "../src/errors";
+import { GitClient } from "../src/git";
+import type { CommandResult } from "../src/types";
 import { StubShellRunner, result } from "./test-helpers";
-import type { CommandResult } from "./types";
 
 type GitClientRunGitAccessor = {
   runGit: (
