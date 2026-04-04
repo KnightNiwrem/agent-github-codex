@@ -134,3 +134,4 @@ dist
 
 # Codex local state
 .codex
+.agc/
