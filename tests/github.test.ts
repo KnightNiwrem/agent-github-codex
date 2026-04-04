@@ -142,7 +142,7 @@ describe("GitHubClient.listReviewComments", () => {
         line: 18,
         userLogin: "reviewer",
         url: "https://example.com/comment/101",
-        inReplyToId: null,
+        inReplyToId: undefined,
       },
       {
         id: 102,
@@ -152,6 +152,35 @@ describe("GitHubClient.listReviewComments", () => {
         userLogin: "reviewer-2",
         url: undefined,
         inReplyToId: 101,
+      },
+    ]);
+  });
+
+  it("accepts null line values in review comment payloads", async () => {
+    const shell = new StubShellRunner([
+      result(
+        JSON.stringify([
+          {
+            id: 104,
+            body: "Context-only comment.",
+            path: "README.md",
+            line: null,
+            user: { login: "reviewer-3" },
+          },
+        ]),
+      ),
+    ]);
+    const github = new GitHubClient(shell);
+
+    await expect(github.listReviewComments("/repo", 22)).resolves.toEqual([
+      {
+        id: 104,
+        body: "Context-only comment.",
+        path: "README.md",
+        line: undefined,
+        userLogin: "reviewer-3",
+        url: undefined,
+        inReplyToId: undefined,
       },
     ]);
   });
