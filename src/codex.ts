@@ -31,13 +31,13 @@ async function withTempOutputFile<T>(
 export class CodexClient {
   constructor(private readonly shell: ShellRunner) {}
 
-  async generateBranchName(
+  private async promptCodex<T>(
     cwd: string,
-    prompt: string,
     stateDir: string,
-  ): Promise<string> {
-    const fallback = fallbackBranchName(prompt);
-
+    prompt: string,
+    fallback: T,
+    parse: (output: string) => T | null,
+  ): Promise<T> {
     try {
       const { output } = await withTempOutputFile(
         stateDir,
@@ -53,34 +53,54 @@ export class CodexClient {
               CODEX_TEXT_SANDBOX,
               "-o",
               outputFile,
-              [
-                "Return only a git branch name.",
-                "Use the format feature/<kebab-slug>.",
-                "Do not include quotes, code fences, or explanations.",
-                `Prompt: ${prompt}`,
-              ].join("\n"),
+              prompt,
             ],
             cwd,
             allowFailure: true,
           });
         },
       );
-      const candidate = coerceBranchName(output);
 
-      if (candidate.length === 0) {
-        return fallback;
-      }
-
-      const isValid = await this.shell.run({
-        args: ["git", "check-ref-format", "--branch", candidate],
-        cwd,
-        allowFailure: true,
-      });
-
-      return isValid.exitCode === 0 ? candidate : fallback;
+      return parse(output) ?? fallback;
     } catch {
       return fallback;
     }
+  }
+
+  async generateBranchName(
+    cwd: string,
+    prompt: string,
+    stateDir: string,
+  ): Promise<string> {
+    const fallback = fallbackBranchName(prompt);
+    const candidate = await this.promptCodex(
+      cwd,
+      stateDir,
+      [
+        "Return only a git branch name.",
+        "Use the format feature/<kebab-slug>.",
+        "Do not include quotes, code fences, or explanations.",
+        `Prompt: ${prompt}`,
+      ].join("\n"),
+      fallback,
+      (output) => {
+        const branchName = coerceBranchName(output);
+
+        return branchName.length > 0 ? branchName : null;
+      },
+    );
+
+    if (candidate === fallback) {
+      return fallback;
+    }
+
+    const isValid = await this.shell.run({
+      args: ["git", "check-ref-format", "--branch", candidate],
+      cwd,
+      allowFailure: true,
+    });
+
+    return isValid.exitCode === 0 ? candidate : fallback;
   }
 
   async implementPrompt(cwd: string, prompt: string): Promise<void> {
@@ -113,40 +133,19 @@ export class CodexClient {
   ): Promise<string> {
     const fallback = fallbackCommitMessage(prompt, mode);
 
-    try {
-      const { output } = await withTempOutputFile(
-        stateDir,
-        async (outputFile) => {
-          await this.shell.run({
-            args: [
-              "codex",
-              "exec",
-              "--ephemeral",
-              "--color",
-              "never",
-              "--sandbox",
-              CODEX_TEXT_SANDBOX,
-              "-o",
-              outputFile,
-              [
-                "Return only a single conventional commit message line.",
-                "Do not include quotes or explanations.",
-                `Mode: ${mode}`,
-                `Original prompt: ${prompt}`,
-                `Staged diff summary: ${stagedDiff || "No diff summary available."}`,
-              ].join("\n"),
-            ],
-            cwd,
-            allowFailure: true,
-          });
-        },
-      );
-      const candidate = output.trim().split(/\r?\n/, 1)[0]?.trim();
-
-      return candidate && candidate.length > 0 ? candidate : fallback;
-    } catch {
-      return fallback;
-    }
+    return await this.promptCodex(
+      cwd,
+      stateDir,
+      [
+        "Return only a single conventional commit message line.",
+        "Do not include quotes or explanations.",
+        `Mode: ${mode}`,
+        `Original prompt: ${prompt}`,
+        `Staged diff summary: ${stagedDiff || "No diff summary available."}`,
+      ].join("\n"),
+      fallback,
+      (output) => output.trim().split(/\r?\n/, 1)[0]?.trim() || null,
+    );
   }
 
   async generatePullRequestDraft(
@@ -159,45 +158,24 @@ export class CodexClient {
   ): Promise<PullRequestDraft> {
     const fallback = fallbackPullRequestDraft(prompt, branch, baseBranch);
 
-    try {
-      const { output } = await withTempOutputFile(
-        stateDir,
-        async (outputFile) => {
-          await this.shell.run({
-            args: [
-              "codex",
-              "exec",
-              "--ephemeral",
-              "--color",
-              "never",
-              "--sandbox",
-              CODEX_TEXT_SANDBOX,
-              "-o",
-              outputFile,
-              [
-                "Draft a GitHub pull request title and body.",
-                "Respond in exactly this format:",
-                "TITLE: <one line title>",
-                "BODY:",
-                "<markdown body>",
-                "",
-                `Original prompt: ${prompt}`,
-                `Head branch: ${branch}`,
-                `Base branch: ${baseBranch}`,
-                `Diff summary: ${branchDiff || "No diff summary available."}`,
-              ].join("\n"),
-            ],
-            cwd,
-            allowFailure: true,
-          });
-        },
-      );
-      const parsed = parseDraftResponse(output);
-
-      return parsed ?? fallback;
-    } catch {
-      return fallback;
-    }
+    return await this.promptCodex(
+      cwd,
+      stateDir,
+      [
+        "Draft a GitHub pull request title and body.",
+        "Respond in exactly this format:",
+        "TITLE: <one line title>",
+        "BODY:",
+        "<markdown body>",
+        "",
+        `Original prompt: ${prompt}`,
+        `Head branch: ${branch}`,
+        `Base branch: ${baseBranch}`,
+        `Diff summary: ${branchDiff || "No diff summary available."}`,
+      ].join("\n"),
+      fallback,
+      parseDraftResponse,
+    );
   }
 
   async addressReviewComments(
