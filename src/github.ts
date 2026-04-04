@@ -27,7 +27,7 @@ const reviewCommentPayloadSchema = z.object({
   id: z.number(),
   body: z.string().catch(""),
   path: z.string().optional(),
-  line: z.number().optional(),
+  line: z.number().nullable().optional(),
   user: z
     .object({
       login: z.string(),
@@ -60,10 +60,10 @@ const reviewCommentPagesSchema = z
       id: comment.id,
       body: comment.body,
       path: comment.path,
-      line: comment.line,
+      line: comment.line ?? undefined,
       userLogin: comment.user?.login,
       url: comment.html_url,
-      inReplyToId: comment.in_reply_to_id,
+      inReplyToId: comment.in_reply_to_id ?? undefined,
     })),
   );
 
