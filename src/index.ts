@@ -31,7 +31,7 @@ program
   .argument("<prompt>", "Prompt describing the requested repository change")
   .action(async (prompt: string, options: { maxUnproductivePolls: number }) => {
     const logger = new ConsoleLogger();
-    const shell = new BunShellRunner();
+    const shell = new BunShellRunner(logger);
     const result = await runPromptWorkflow(prompt, {
       shell,
       logger,

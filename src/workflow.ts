@@ -77,7 +77,7 @@ export async function runPromptWorkflow(
   const maxUnproductivePolls = dependencies.options?.maxUnproductivePolls ?? 1;
   const git = new GitClient(shell);
   const codex = new CodexClient(shell);
-  const github = new GitHubClient(shell);
+  const github = new GitHubClient(shell, logger);
   const startCwd = process.cwd();
   const repoRoot = await git.getRepositoryRoot(startCwd);
   const harness =

@@ -1,13 +1,21 @@
 import { CommandExecutionError } from "./errors";
-import type { CommandResult, CommandSpec, ShellRunner } from "./types";
+import type { CommandResult, CommandSpec, Logger, ShellRunner } from "./types";
 
 async function readStream(stream: ReadableStream<Uint8Array>): Promise<string> {
   return await new Response(stream).text();
 }
 
 export class BunShellRunner implements ShellRunner {
+  constructor(private readonly logger?: Logger) {}
+
   async run(spec: CommandSpec): Promise<CommandResult> {
     let processHandle: Bun.Subprocess<"pipe", "pipe", "pipe">;
+    this.logger?.info("command.start", {
+      command: spec.args,
+      cwd: spec.cwd ?? process.cwd(),
+      allowFailure: spec.allowFailure ?? false,
+      input: spec.input,
+    });
 
     try {
       processHandle = Bun.spawn({
@@ -23,6 +31,13 @@ export class BunShellRunner implements ShellRunner {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      this.logger?.error("command.spawn_failed", {
+        command: spec.args,
+        cwd: spec.cwd ?? process.cwd(),
+        allowFailure: spec.allowFailure ?? false,
+        input: spec.input,
+        error: message,
+      });
       throw new Error(
         `Failed to start command: ${spec.args.join(" ")}\n${message}`,
       );
@@ -45,7 +60,23 @@ export class BunShellRunner implements ShellRunner {
       exitCode,
     };
 
+    this.logger?.info("command.complete", {
+      command: spec.args,
+      cwd: spec.cwd ?? process.cwd(),
+      allowFailure: spec.allowFailure ?? false,
+      exitCode,
+      stdout,
+      stderr,
+    });
+
     if (exitCode !== 0 && !spec.allowFailure) {
+      this.logger?.error("command.failed", {
+        command: spec.args,
+        cwd: spec.cwd ?? process.cwd(),
+        exitCode,
+        stdout,
+        stderr,
+      });
       throw new CommandExecutionError(spec.args, result);
     }
 
