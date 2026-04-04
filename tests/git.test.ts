@@ -105,6 +105,7 @@ describe("GitClient git command helpers", () => {
       result(),
       result(),
       result(),
+      result(),
       result(" staged stat \n"),
       result(" branch stat \n"),
       result(),
@@ -153,7 +154,11 @@ describe("GitClient git command helpers", () => {
         cwd: "/repo",
       },
       {
-        args: ["git", "add", "--all", "--", ".", ":(exclude).agc"],
+        args: ["git", "add", "--all", "--", "."],
+        cwd: "/repo",
+      },
+      {
+        args: ["git", "reset", "--", ".agc"],
         cwd: "/repo",
       },
       {
