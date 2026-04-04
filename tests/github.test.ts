@@ -173,3 +173,25 @@ describe("GitHubClient.listReviewComments", () => {
     );
   });
 });
+
+describe("GitHubClient.getCurrentUserLogin", () => {
+  it("parses the authenticated user login", async () => {
+    const shell = new StubShellRunner([
+      result(JSON.stringify({ login: "KnightNiwrem" })),
+    ]);
+    const github = new GitHubClient(shell);
+
+    await expect(github.getCurrentUserLogin("/repo")).resolves.toBe(
+      "KnightNiwrem",
+    );
+  });
+
+  it("throws when the authenticated user payload is invalid", async () => {
+    const shell = new StubShellRunner([result(JSON.stringify({ id: 7 }))]);
+    const github = new GitHubClient(shell);
+
+    await expect(github.getCurrentUserLogin("/repo")).rejects.toThrow(
+      /^Failed to parse authenticated GitHub user:/,
+    );
+  });
+});

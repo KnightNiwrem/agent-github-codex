@@ -16,6 +16,10 @@ const pullRequestViewSchema = z.object({
   baseRefName: z.string().nullish(),
 });
 
+const viewerSchema = z.object({
+  login: z.string(),
+});
+
 const reviewCommentPayloadSchema = z.object({
   id: z.number(),
   body: z.string().catch(""),
@@ -155,6 +159,20 @@ export class GitHubClient {
       ],
       cwd,
     });
+  }
+
+  async getCurrentUserLogin(cwd: string): Promise<string> {
+    const result = await this.shell.run({
+      args: ["gh", "api", "user"],
+      cwd,
+    });
+    const payload = parseGitHubJson(
+      result.stdout,
+      viewerSchema,
+      "Failed to parse authenticated GitHub user",
+    );
+
+    return payload.login;
   }
 
   async listReviewComments(

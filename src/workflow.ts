@@ -6,7 +6,10 @@ import {
 import { GitClient } from "./git";
 import { GitHubClient } from "./github";
 import type { HarnessWorkspaceState } from "./harness";
-import { FileSystemHarnessWorkspace } from "./harness";
+import {
+  FileSystemHarnessWorkspace,
+  buildDefaultHarnessConfig,
+} from "./harness";
 import type {
   Logger,
   ReviewComment,
@@ -75,9 +78,14 @@ export async function runPromptWorkflow(
   const git = new GitClient(shell);
   const codex = new CodexClient(shell);
   const github = new GitHubClient(shell);
-  const harness = dependencies.harness ?? new FileSystemHarnessWorkspace();
   const startCwd = process.cwd();
   const repoRoot = await git.getRepositoryRoot(startCwd);
+  const harness =
+    dependencies.harness ??
+    new FileSystemHarnessWorkspace({
+      resolveDefaultConfig: async () =>
+        buildDefaultHarnessConfig(await github.getCurrentUserLogin(repoRoot)),
+    });
   const baseBranch = await git.getCurrentBranch(repoRoot);
 
   if (!ALLOWED_BASE_BRANCHES.has(baseBranch)) {
