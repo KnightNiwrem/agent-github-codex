@@ -62,6 +62,13 @@ The CLI currently accepts the required prompt argument plus an optional review-l
 agc --max-unproductive-polls 3 "implement the requested change"
 ```
 
+It also exposes the standard Commander version flag:
+
+```bash
+agc --version
+agc -V
+```
+
 `--max-unproductive-polls` controls how many consecutive review polls with no new actionable comments are allowed before the process exits.
 
 - default: `1`

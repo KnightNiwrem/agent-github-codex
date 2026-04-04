@@ -1,14 +1,18 @@
 #!/usr/bin/env bun
 
+import { createRequire } from "node:module";
 import { Command } from "commander";
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
 import { runPromptWorkflow } from "./workflow";
 
+const require = createRequire(import.meta.url);
+const packageJson = require("../package.json") as { version: string };
 const program = new Command();
 
 program
   .name("agc")
+  .version(packageJson.version)
   .description(
     "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   )
