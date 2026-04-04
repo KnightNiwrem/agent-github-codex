@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
+import { readPackageVersion } from "./version";
 import { runPromptWorkflow } from "./workflow";
 
 const program = new Command();
@@ -51,6 +52,7 @@ program
   });
 
 try {
+  program.version(await readPackageVersion());
   await program.parseAsync(process.argv);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
