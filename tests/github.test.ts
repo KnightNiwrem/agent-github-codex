@@ -288,7 +288,7 @@ describe("GitHubClient.listReviewComments", () => {
     const github = new GitHubClient(shell, logger);
 
     await expect(github.listReviewComments("/repo", 22)).rejects.toThrow(
-      /^Failed to parse pull request issue comments:/,
+      /^Failed to parse pull request conversation comments:/,
     );
 
     expect(logger.entries).toEqual([
@@ -316,7 +316,7 @@ describe("GitHubClient.listReviewComments", () => {
         level: "info",
         event: "parse.github.response_received",
         fields: {
-          errorPrefix: "Failed to parse pull request issue comments",
+          errorPrefix: "Failed to parse pull request conversation comments",
           operation: "listReviewComments",
           pullRequestNumber: 22,
           stdout: '[{"id":"bad-id","body":"comment"}]',
@@ -326,7 +326,7 @@ describe("GitHubClient.listReviewComments", () => {
         level: "error",
         event: "parse.github.response_failed",
         fields: expect.objectContaining({
-          errorPrefix: "Failed to parse pull request issue comments",
+          errorPrefix: "Failed to parse pull request conversation comments",
           operation: "listReviewComments",
           pullRequestNumber: 22,
           stdout: '[{"id":"bad-id","body":"comment"}]',

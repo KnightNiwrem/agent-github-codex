@@ -50,36 +50,20 @@ const issueCommentPayloadSchema = z.object({
 
 const reviewCommentPageSchema = z.array(reviewCommentPayloadSchema);
 const issueCommentPageSchema = z.array(issueCommentPayloadSchema);
-type ReviewCommentPayload = z.infer<typeof reviewCommentPayloadSchema>;
-type IssueCommentPayload = z.infer<typeof issueCommentPayloadSchema>;
 
-function flattenReviewCommentPayload(
-  payload: ReviewCommentPayload[] | ReviewCommentPayload[][],
-): ReviewCommentPayload[] {
+function flattenSlurpedPages<T>(payload: T[] | T[][]): T[] {
   const firstItem = payload[0];
 
   if (Array.isArray(firstItem)) {
-    return payload.flat();
+    return (payload as T[][]).flat();
   }
 
-  return payload as ReviewCommentPayload[];
-}
-
-function flattenIssueCommentPayload(
-  payload: IssueCommentPayload[] | IssueCommentPayload[][],
-): IssueCommentPayload[] {
-  const firstItem = payload[0];
-
-  if (Array.isArray(firstItem)) {
-    return payload.flat();
-  }
-
-  return payload as IssueCommentPayload[];
+  return payload as T[];
 }
 
 const reviewCommentPagesSchema = z
   .union([reviewCommentPageSchema, z.array(reviewCommentPageSchema)])
-  .transform((payload) => flattenReviewCommentPayload(payload))
+  .transform((payload) => flattenSlurpedPages(payload))
   .transform((comments): ReviewComment[] =>
     comments.map((comment) => ({
       id: comment.id,
@@ -94,7 +78,7 @@ const reviewCommentPagesSchema = z
 
 const issueCommentPagesSchema = z
   .union([issueCommentPageSchema, z.array(issueCommentPageSchema)])
-  .transform((payload) => flattenIssueCommentPayload(payload))
+  .transform((payload) => flattenSlurpedPages(payload))
   .transform((comments): ReviewComment[] =>
     comments.map((comment) => ({
       id: comment.id,
@@ -273,6 +257,7 @@ export class GitHubClient {
     cwd: string,
     pullRequestNumber: number,
   ): Promise<ReviewComment[]> {
+    // This combines inline review comments and top-level PR conversation comments.
     const reviewResult = await this.shell.run({
       args: [
         "gh",
@@ -308,7 +293,7 @@ export class GitHubClient {
       this.logger,
       issueResult.stdout,
       issueCommentPagesSchema,
-      "Failed to parse pull request issue comments",
+      "Failed to parse pull request conversation comments",
       {
         operation: "listReviewComments",
         pullRequestNumber,
