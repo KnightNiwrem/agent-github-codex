@@ -37,24 +37,33 @@ const reviewCommentPayloadSchema = z.object({
   in_reply_to_id: z.number().nullable().optional(),
 });
 
-const reviewCommentPageSchema = z.array(reviewCommentPayloadSchema);
-type ReviewCommentPayload = z.infer<typeof reviewCommentPayloadSchema>;
+const issueCommentPayloadSchema = z.object({
+  id: z.number(),
+  body: z.string().catch(""),
+  user: z
+    .object({
+      login: z.string(),
+    })
+    .nullish(),
+  html_url: z.string().optional(),
+});
 
-function flattenReviewCommentPayload(
-  payload: ReviewCommentPayload[] | ReviewCommentPayload[][],
-): ReviewCommentPayload[] {
+const reviewCommentPageSchema = z.array(reviewCommentPayloadSchema);
+const issueCommentPageSchema = z.array(issueCommentPayloadSchema);
+
+function flattenSlurpedPages<T>(payload: T[] | T[][]): T[] {
   const firstItem = payload[0];
 
   if (Array.isArray(firstItem)) {
-    return payload.flat();
+    return (payload as T[][]).flat();
   }
 
-  return payload as ReviewCommentPayload[];
+  return payload as T[];
 }
 
 const reviewCommentPagesSchema = z
   .union([reviewCommentPageSchema, z.array(reviewCommentPageSchema)])
-  .transform((payload) => flattenReviewCommentPayload(payload))
+  .transform((payload) => flattenSlurpedPages(payload))
   .transform((comments): ReviewComment[] =>
     comments.map((comment) => ({
       id: comment.id,
@@ -64,6 +73,21 @@ const reviewCommentPagesSchema = z
       userLogin: comment.user?.login,
       url: comment.html_url,
       inReplyToId: comment.in_reply_to_id ?? undefined,
+    })),
+  );
+
+const issueCommentPagesSchema = z
+  .union([issueCommentPageSchema, z.array(issueCommentPageSchema)])
+  .transform((payload) => flattenSlurpedPages(payload))
+  .transform((comments): ReviewComment[] =>
+    comments.map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      path: undefined,
+      line: undefined,
+      userLogin: comment.user?.login,
+      url: comment.html_url,
+      inReplyToId: undefined,
     })),
   );
 
@@ -233,7 +257,8 @@ export class GitHubClient {
     cwd: string,
     pullRequestNumber: number,
   ): Promise<ReviewComment[]> {
-    const result = await this.shell.run({
+    // This combines inline review comments and top-level PR conversation comments.
+    const reviewResult = await this.shell.run({
       args: [
         "gh",
         "api",
@@ -243,15 +268,40 @@ export class GitHubClient {
       ],
       cwd,
     });
-    return parseGitHubJson(
+    const issueResult = await this.shell.run({
+      args: [
+        "gh",
+        "api",
+        "--paginate",
+        "--slurp",
+        `repos/{owner}/{repo}/issues/${pullRequestNumber}/comments`,
+      ],
+      cwd,
+    });
+
+    const reviewComments = parseGitHubJson(
       this.logger,
-      result.stdout,
+      reviewResult.stdout,
       reviewCommentPagesSchema,
       "Failed to parse pull request review comments",
       {
         operation: "listReviewComments",
         pullRequestNumber,
       },
+    );
+    const issueComments = parseGitHubJson(
+      this.logger,
+      issueResult.stdout,
+      issueCommentPagesSchema,
+      "Failed to parse pull request conversation comments",
+      {
+        operation: "listReviewComments",
+        pullRequestNumber,
+      },
+    );
+
+    return [...reviewComments, ...issueComments].sort(
+      (left, right) => left.id - right.id,
     );
   }
 }
