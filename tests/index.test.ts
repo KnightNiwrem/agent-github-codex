@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseMaxUnproductivePolls } from "../src/cli-options";
 import { readPackageVersion } from "../src/version";
 
 describe("CLI versioning", () => {
@@ -45,6 +46,22 @@ describe("CLI versioning", () => {
       );
     } finally {
       await rm(tempDir, { force: true, recursive: true });
+    }
+  });
+});
+
+describe("parseMaxUnproductivePolls", () => {
+  it("accepts non-negative integer strings", () => {
+    expect(parseMaxUnproductivePolls("0")).toBe(0);
+    expect(parseMaxUnproductivePolls("1")).toBe(1);
+    expect(parseMaxUnproductivePolls("25")).toBe(25);
+  });
+
+  it("rejects invalid values with the CLI error message", () => {
+    for (const value of ["-1", "1.5", "abc", "01", " 2 "]) {
+      expect(() => parseMaxUnproductivePolls(value)).toThrow(
+        "--max-unproductive-polls must be a non-negative integer",
+      );
     }
   });
 });
