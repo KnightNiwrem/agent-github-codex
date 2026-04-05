@@ -1,22 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { GitClient } from "../src/git";
-import type { CommandResult, CommandSpec } from "../src/types";
+import { GitClient, runGitCommand, runGitTextCommand } from "../src/git";
 import { StubShellRunner, result } from "./test-helpers";
-
-type GitCommandOptions = Omit<CommandSpec, "args" | "cwd">;
-
-type GitClientRunGitAccessor = {
-  runGit: (
-    cwd: string,
-    args: string[],
-    options?: GitCommandOptions,
-  ) => Promise<CommandResult>;
-  runGitText: (
-    cwd: string,
-    args: string[],
-    options?: GitCommandOptions,
-  ) => Promise<string>;
-};
 
 describe("GitClient workspace status", () => {
   it("ignores harness paths when checking for a clean workspace", async () => {
@@ -58,11 +42,9 @@ describe("GitClient workspace status", () => {
 describe("GitClient git command helpers", () => {
   it("forwards command options through the shared git runner", async () => {
     const shell = new StubShellRunner([result("ok")]);
-    const git = new GitClient(shell);
-    const privateGit = git as unknown as GitClientRunGitAccessor;
 
     await expect(
-      privateGit.runGit("/repo", ["status", "--short"], {
+      runGitCommand(shell, "/repo", ["status", "--short"], {
         env: { FOO: "bar" },
         input: "data",
         allowFailure: true,
@@ -82,11 +64,9 @@ describe("GitClient git command helpers", () => {
 
   it("trims stdout through the shared text runner", async () => {
     const shell = new StubShellRunner([result(" value \n")]);
-    const git = new GitClient(shell);
-    const privateGit = git as unknown as GitClientRunGitAccessor;
 
     await expect(
-      privateGit.runGitText("/repo", ["rev-parse", "--show-toplevel"]),
+      runGitTextCommand(shell, "/repo", ["rev-parse", "--show-toplevel"]),
     ).resolves.toBe("value");
 
     expect(shell.calls).toEqual([

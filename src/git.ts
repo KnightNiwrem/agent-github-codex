@@ -3,6 +3,8 @@ import type { CommandSpec, ShellRunner } from "./types";
 
 const HARNESS_GIT_PATHS = [".agc"];
 
+export type GitCommandOptions = Omit<CommandSpec, "args" | "cwd">;
+
 function withExcludedPaths(
   baseArgs: string[],
   excludedPaths: string[],
@@ -15,29 +17,47 @@ function withExcludedPaths(
   ];
 }
 
+export function runGitCommand(
+  shell: ShellRunner,
+  cwd: string,
+  args: string[],
+  options?: GitCommandOptions,
+): ReturnType<ShellRunner["run"]> {
+  return shell.run({
+    ...options,
+    args: ["git", ...args],
+    cwd,
+  });
+}
+
+export async function runGitTextCommand(
+  shell: ShellRunner,
+  cwd: string,
+  args: string[],
+  options?: GitCommandOptions,
+): Promise<string> {
+  const result = await runGitCommand(shell, cwd, args, options);
+
+  return result.stdout.trim();
+}
+
 export class GitClient {
   constructor(private readonly shell: ShellRunner) {}
 
   private async runGit(
     cwd: string,
     args: string[],
-    options?: Omit<CommandSpec, "args" | "cwd">,
+    options?: GitCommandOptions,
   ): ReturnType<ShellRunner["run"]> {
-    return this.shell.run({
-      ...options,
-      args: ["git", ...args],
-      cwd,
-    });
+    return runGitCommand(this.shell, cwd, args, options);
   }
 
   private async runGitText(
     cwd: string,
     args: string[],
-    options?: Omit<CommandSpec, "args" | "cwd">,
+    options?: GitCommandOptions,
   ): Promise<string> {
-    const result = await this.runGit(cwd, args, options);
-
-    return result.stdout.trim();
+    return runGitTextCommand(this.shell, cwd, args, options);
   }
 
   private getWorkspaceStatusArgs(): string[] {
