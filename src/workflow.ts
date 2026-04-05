@@ -131,6 +131,26 @@ export async function runPromptWorkflow(
       branch: baseBranch,
       reason: "no_initial_changes",
     });
+    const deleteResult = await git.deleteBranch(repoRoot, branch, {
+      allowFailure: true,
+      force: true,
+    });
+    if (deleteResult.exitCode === 0) {
+      logger.info("branch.deleted", {
+        branch,
+        reason: "no_initial_changes",
+      });
+    } else {
+      const deleteError =
+        deleteResult.stderr.trim() ||
+        deleteResult.stdout.trim() ||
+        `Branch deletion failed with exit code ${deleteResult.exitCode}`;
+      logger.warn("branch.delete_failed", {
+        branch,
+        reason: "no_initial_changes",
+        error: deleteError,
+      });
+    }
 
     return {
       branch,

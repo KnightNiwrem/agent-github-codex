@@ -104,6 +104,20 @@ export class GitClient {
     await this.runGit(cwd, ["checkout", branch]);
   }
 
+  async deleteBranch(
+    cwd: string,
+    branch: string,
+    options: GitCommandOptions & { force?: boolean } = {},
+  ): ReturnType<ShellRunner["run"]> {
+    const { force = false, ...gitOptions } = options;
+
+    return this.runGit(
+      cwd,
+      ["branch", force ? "-D" : "-d", branch],
+      gitOptions,
+    );
+  }
+
   async hasChanges(cwd: string): Promise<boolean> {
     return (await this.getWorkspaceStatus(cwd)).length > 0;
   }
