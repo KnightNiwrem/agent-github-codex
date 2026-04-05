@@ -21,7 +21,7 @@ The following tools must already be installed and available on `PATH`:
 
 You also need:
 
-- a Git repository with a configured `origin` remote
+- a Git repository with a configured push remote
 - `gh` authenticated against the target repository
 - `codex` authenticated and able to run `codex exec`
 - permission to push branches and open pull requests in the target repository
@@ -79,7 +79,7 @@ This CLI assumes the external CLIs are already configured:
 
 - `gh auth status` should report an active authenticated session.
 - `codex exec --help` should succeed and Codex should be able to execute non-interactively.
-- `git push` to `origin` should work for the current repository.
+- `git push` should work for the remote configured in `.agc/config.json`.
 
 The review re-request flow uses:
 
@@ -107,6 +107,7 @@ The harness creates and manages this layout:
 
 ```json
 {
+  "remoteName": "origin",
   "pullRequestReviewers": ["@copilot"],
   "trustedReviewCommenters": [
     "@copilot",
@@ -117,6 +118,8 @@ The harness creates and manages this layout:
   ]
 }
 ```
+
+`remoteName` controls which git remote receives published branches. It defaults to `"origin"` when the harness creates a new config, and older configs that omit the field still read as `"origin"`.
 
 `pullRequestReviewers` controls who gets requested on the PR.
 
@@ -170,7 +173,7 @@ Given a single prompt argument, the CLI runs this sequence:
 10. If no files changed outside `.agc/`, stop cleanly without committing or opening a PR.
 11. If files changed, stage repository changes with `git add --all -- .`, then unstage `.agc/` with `git reset -- .agc`.
 12. Ask Codex for a one-line commit message and fall back to a deterministic conventional message if needed.
-13. Commit and push the branch.
+13. Commit and push the branch to the configured remote.
 14. Ask Codex for a PR title/body and fall back to a deterministic template if needed.
 15. Open the PR with `gh pr create --base ... --head ... --title ... --body ...`.
 16. Resolve PR metadata with `gh pr view <branch> --json ...`.

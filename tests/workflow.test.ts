@@ -167,6 +167,7 @@ class TestLogger implements Logger {
 function stubHarness(
   reviewers: string[] = ["@copilot"],
   trustedReviewCommenters: string[] = reviewers,
+  remoteName = "origin",
 ): {
   ensure: (repoRoot: string) => Promise<HarnessWorkspaceState>;
 } {
@@ -180,6 +181,7 @@ function stubHarness(
         stateDir,
         configFile: join(repoRoot, ".agc", "config.json"),
         config: {
+          remoteName,
           pullRequestReviewers: reviewers,
           trustedReviewCommenters,
         },
@@ -564,6 +566,79 @@ it("stages repository changes while excluding harness-owned .agc paths", async (
 
   expect(workflow.committed).toBe(true);
   expect(workflow.pr?.number).toBe(12);
+  shell.assertComplete();
+});
+
+it("pushes branches to the configured harness remote", async () => {
+  const shell = new SequenceShellRunner([
+    exact(["git", "rev-parse", "--show-toplevel"], result("/repo\n")),
+    exact(["git", "rev-parse", "--abbrev-ref", "HEAD"], result("main\n")),
+    exact(gitStatusExcludingHarness, result("")),
+    codexOutputContains("Return only a git branch name.", "feature/remote\n"),
+    exact(["git", "check-ref-format", "--branch", "feature/remote"], result()),
+    exact(["git", "checkout", "-b", "feature/remote", "main"], result()),
+    codexEditContains("Implement the requested change in this repository."),
+    exact(gitStatusExcludingHarness, result(" M README.md\n")),
+    exact(gitAddExcludingHarness, result()),
+    exact(gitResetHarnessPaths, result()),
+    exact(["git", "diff", "--cached", "--stat"], result(" README.md | 1 +\n")),
+    codexOutputContains(
+      "Return only a single conventional commit message line.",
+      "docs: describe remote config\n",
+    ),
+    exact(["git", "commit", "-m", "docs: describe remote config"], result()),
+    exact(["git", "push", "-u", "upstream", "feature/remote"], result()),
+    exact(
+      ["git", "diff", "main...HEAD", "--stat"],
+      result(" README.md | 1 +\n"),
+    ),
+    codexOutputContains(
+      "Draft a GitHub pull request title and body.",
+      "TITLE: docs: describe remote config\nBODY:\nSummary",
+    ),
+    exact(
+      [
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "feature/remote",
+        "--title",
+        "docs: describe remote config",
+        "--body",
+        "Summary",
+      ],
+      result(),
+    ),
+    exact(
+      [
+        "gh",
+        "pr",
+        "view",
+        "feature/remote",
+        "--json",
+        "number,url,title,body,headRefName,baseRefName",
+      ],
+      result(
+        '{"number":15,"url":"https://example.com/pr/15","headRefName":"feature/remote","baseRefName":"main","title":"docs: describe remote config","body":"Summary"}\n',
+      ),
+    ),
+    exact(["gh", "pr", "edit", "15", "--add-reviewer", "@copilot"], result()),
+    exact(pullReviewCommentsApiArgs(15), result("[[]]\n")),
+    exact(pullIssueCommentsApiArgs(15), result("[[]]\n")),
+  ]);
+
+  const workflow = await runPromptWorkflow("Describe remote config", {
+    shell,
+    logger: new TestLogger(),
+    harness: stubHarness(["@copilot"], ["@copilot"], "upstream"),
+    sleep: async () => undefined,
+  });
+
+  expect(workflow.committed).toBe(true);
+  expect(workflow.pr?.number).toBe(15);
   shell.assertComplete();
 });
 

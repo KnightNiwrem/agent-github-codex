@@ -139,7 +139,7 @@ export class GitClient {
     await this.runGit(cwd, ["commit", "-m", message]);
   }
 
-  async push(cwd: string, branch: string): Promise<void> {
-    await this.runGit(cwd, ["push", "-u", "origin", branch]);
+  async push(cwd: string, remoteName: string, branch: string): Promise<void> {
+    await this.runGit(cwd, ["push", "-u", remoteName, branch]);
   }
 }

@@ -101,6 +101,7 @@ export async function runPromptWorkflow(
     repoRoot,
     baseBranch,
     agcDir: harnessState.rootDir,
+    remoteName: harnessState.config.remoteName,
     reviewers: harnessState.config.pullRequestReviewers.join(","),
     trustedReviewCommenters:
       harnessState.config.trustedReviewCommenters.join(","),
@@ -171,8 +172,12 @@ export async function runPromptWorkflow(
   );
 
   await git.commit(repoRoot, commitMessage);
-  await git.push(repoRoot, branch);
-  logger.info("git.pushed", { branch, commitMessage });
+  await git.push(repoRoot, harnessState.config.remoteName, branch);
+  logger.info("git.pushed", {
+    branch,
+    remoteName: harnessState.config.remoteName,
+    commitMessage,
+  });
 
   const branchDiff = await git.getBranchDiff(repoRoot, baseBranch);
   const draft = await codex.generatePullRequestDraft(
@@ -224,6 +229,7 @@ export async function runPromptWorkflow(
     stateDir: harnessState.stateDir,
     reviewers: harnessState.config.pullRequestReviewers,
     trustedReviewCommenters: harnessState.config.trustedReviewCommenters,
+    remoteName: harnessState.config.remoteName,
   });
 
   return {
@@ -251,6 +257,7 @@ interface ReviewLoopArgs {
   stateDir: string;
   reviewers: string[];
   trustedReviewCommenters: string[];
+  remoteName: string;
 }
 
 async function runReviewLoop(
@@ -272,6 +279,7 @@ async function runReviewLoop(
     stateDir,
     reviewers,
     trustedReviewCommenters,
+    remoteName,
   } = args;
   let consecutiveUnproductivePolls = 0;
   const trustedCommenters = trustedReviewCommenterSet(trustedReviewCommenters);
@@ -353,10 +361,11 @@ async function runReviewLoop(
       stateDir,
     );
     await git.commit(repoRoot, commitMessage);
-    await git.push(repoRoot, branch);
+    await git.push(repoRoot, remoteName, branch);
     logger.info("review.fix_pushed", {
       pullRequestNumber,
       branch,
+      remoteName,
       commitMessage,
     });
 
