@@ -104,6 +104,10 @@ export class GitClient {
     await this.runGit(cwd, ["checkout", branch]);
   }
 
+  async deleteBranch(cwd: string, branch: string): Promise<void> {
+    await this.runGit(cwd, ["branch", "-d", branch]);
+  }
+
   async hasChanges(cwd: string): Promise<boolean> {
     return (await this.getWorkspaceStatus(cwd)).length > 0;
   }

@@ -131,6 +131,11 @@ export async function runPromptWorkflow(
       branch: baseBranch,
       reason: "no_initial_changes",
     });
+    await git.deleteBranch(repoRoot, branch);
+    logger.info("branch.deleted", {
+      branch,
+      reason: "no_initial_changes",
+    });
 
     return {
       branch,

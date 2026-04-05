@@ -234,17 +234,26 @@ describe("workflow guards", () => {
       codexEditContains("Implement the requested change in this repository."),
       exact(gitStatusExcludingHarness, result("")),
       exact(["git", "checkout", "main"], result()),
+      exact(["git", "branch", "-d", "feature/no-op"], result()),
     ]);
 
+    const logger = new TestLogger();
     const workflow = await runPromptWorkflow("No-op request", {
       shell,
-      logger: new TestLogger(),
+      logger,
       harness: stubHarness(),
       sleep: async () => undefined,
     });
 
     expect(workflow.committed).toBe(false);
     expect(workflow.reviewLoopReason).toBe("no_initial_changes");
+    expect(logger.entries).toContainEqual({
+      event: "branch.deleted",
+      fields: {
+        branch: "feature/no-op",
+        reason: "no_initial_changes",
+      },
+    });
     shell.assertComplete();
   });
 });
@@ -385,6 +394,7 @@ it("skips commit and PR creation when codex makes no changes", async () => {
     codexEditContains("Implement the requested change in this repository."),
     exact(gitStatusExcludingHarness, result("")),
     exact(["git", "checkout", "main"], result()),
+    exact(["git", "branch", "-d", "feature/no-op"], result()),
   ]);
   const logger = new TestLogger();
 
@@ -401,6 +411,13 @@ it("skips commit and PR creation when codex makes no changes", async () => {
     logger.entries.some(
       (entry) =>
         entry.event === "branch.restored" &&
+        entry.fields?.reason === "no_initial_changes",
+    ),
+  ).toBe(true);
+  expect(
+    logger.entries.some(
+      (entry) =>
+        entry.event === "branch.deleted" &&
         entry.fields?.reason === "no_initial_changes",
     ),
   ).toBe(true);
