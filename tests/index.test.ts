@@ -55,10 +55,23 @@ describe("parseMaxUnproductivePolls", () => {
     expect(parseMaxUnproductivePolls("0")).toBe(0);
     expect(parseMaxUnproductivePolls("1")).toBe(1);
     expect(parseMaxUnproductivePolls("25")).toBe(25);
+    expect(parseMaxUnproductivePolls("01")).toBe(1);
+    expect(parseMaxUnproductivePolls(" 2 ")).toBe(2);
   });
 
   it("rejects invalid values with the CLI error message", () => {
-    for (const value of ["-1", "1.5", "abc", "01", " 2 "]) {
+    for (const value of ["-1", "1.5", "abc"]) {
+      expect(() => parseMaxUnproductivePolls(value)).toThrow(
+        "--max-unproductive-polls must be a non-negative integer",
+      );
+    }
+  });
+
+  it("rejects values above JavaScript's safe integer range", () => {
+    for (const value of [
+      "9007199254740992",
+      "999999999999999999999999999999999999",
+    ]) {
       expect(() => parseMaxUnproductivePolls(value)).toThrow(
         "--max-unproductive-polls must be a non-negative integer",
       );
