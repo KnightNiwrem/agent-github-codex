@@ -104,8 +104,18 @@ export class GitClient {
     await this.runGit(cwd, ["checkout", branch]);
   }
 
-  async deleteBranch(cwd: string, branch: string): Promise<void> {
-    await this.runGit(cwd, ["branch", "-d", branch]);
+  async deleteBranch(
+    cwd: string,
+    branch: string,
+    options: GitCommandOptions & { force?: boolean } = {},
+  ) {
+    const { force = false, ...gitOptions } = options;
+
+    return this.runGit(
+      cwd,
+      ["branch", force ? "-D" : "-d", branch],
+      gitOptions,
+    );
   }
 
   async hasChanges(cwd: string): Promise<boolean> {
