@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { GitClient, runGitCommand, runGitTextCommand } from "../src/git";
+import { GitClient } from "../src/git";
 import { StubShellRunner, result } from "./test-helpers";
 
 describe("GitClient workspace status", () => {
@@ -41,19 +41,22 @@ describe("GitClient workspace status", () => {
 
 describe("GitClient git command helpers", () => {
   it("forwards command options through the shared git runner", async () => {
-    const shell = new StubShellRunner([result("ok")]);
+    const commandResult = result("ok");
+    const shell = new StubShellRunner([commandResult]);
+    const git = new GitClient(shell);
 
     await expect(
-      runGitCommand(shell, "/repo", ["status", "--short"], {
+      git.deleteBranch("/repo", "topic", {
         env: { FOO: "bar" },
         input: "data",
         allowFailure: true,
+        force: true,
       }),
-    ).resolves.toEqual(result("ok"));
+    ).resolves.toEqual(commandResult);
 
     expect(shell.calls).toEqual([
       {
-        args: ["git", "status", "--short"],
+        args: ["git", "branch", "-D", "topic"],
         cwd: "/repo",
         env: { FOO: "bar" },
         input: "data",
@@ -64,10 +67,9 @@ describe("GitClient git command helpers", () => {
 
   it("trims stdout through the shared text runner", async () => {
     const shell = new StubShellRunner([result(" value \n")]);
+    const git = new GitClient(shell);
 
-    await expect(
-      runGitTextCommand(shell, "/repo", ["rev-parse", "--show-toplevel"]),
-    ).resolves.toBe("value");
+    await expect(git.getRepositoryRoot("/repo")).resolves.toBe("value");
 
     expect(shell.calls).toEqual([
       {
@@ -157,6 +159,20 @@ describe("GitClient git command helpers", () => {
       },
       {
         args: ["git", "push", "-u", "upstream", "fix/helpers"],
+        cwd: "/repo",
+      },
+    ]);
+  });
+
+  it("uses the non-force delete flag by default", async () => {
+    const shell = new StubShellRunner([result()]);
+    const git = new GitClient(shell);
+
+    await expect(git.deleteBranch("/repo", "topic")).resolves.toEqual(result());
+
+    expect(shell.calls).toEqual([
+      {
+        args: ["git", "branch", "-d", "topic"],
         cwd: "/repo",
       },
     ]);
