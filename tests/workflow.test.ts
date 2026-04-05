@@ -29,6 +29,26 @@ const gitStatusExcludingHarness = [
 const gitAddExcludingHarness = ["git", "add", "--all", "--", "."];
 const gitResetHarnessPaths = ["git", "reset", "--", ".agc"];
 
+function pullReviewCommentsApiArgs(pullRequestNumber: number): string[] {
+  return [
+    "gh",
+    "api",
+    "--paginate",
+    "--slurp",
+    `repos/{owner}/{repo}/pulls/${pullRequestNumber}/comments`,
+  ];
+}
+
+function pullIssueCommentsApiArgs(pullRequestNumber: number): string[] {
+  return [
+    "gh",
+    "api",
+    "--paginate",
+    "--slurp",
+    `repos/{owner}/{repo}/issues/${pullRequestNumber}/comments`,
+  ];
+}
+
 interface Step {
   match(args: string[]): boolean;
   run(spec: CommandSpec): Promise<CommandResult>;
@@ -531,16 +551,8 @@ it("stages repository changes while excluding harness-owned .agc paths", async (
       ),
     ),
     exact(["gh", "pr", "edit", "12", "--add-reviewer", "@copilot"], result()),
-    exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/12/comments",
-      ],
-      result("[[]]\n"),
-    ),
+    exact(pullReviewCommentsApiArgs(12), result("[[]]\n")),
+    exact(pullIssueCommentsApiArgs(12), result("[[]]\n")),
   ]);
 
   const workflow = await runPromptWorkflow("Update docs", {
@@ -629,13 +641,7 @@ it("review loop terminates when review fixes produce no file changes", async () 
     ),
     exact(["gh", "pr", "edit", "1", "--add-reviewer", "@copilot"], result()),
     exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/1/comments",
-      ],
+      pullReviewCommentsApiArgs(1),
       result(
         JSON.stringify([
           [
@@ -653,6 +659,7 @@ it("review loop terminates when review fixes produce no file changes", async () 
         ]),
       ),
     ),
+    exact(pullIssueCommentsApiArgs(1), result(JSON.stringify([[]]))),
     codexEditContains(
       "Review the new pull request review comments and address only valid issues.",
     ),
@@ -752,26 +759,10 @@ it("review loop respects max unproductive polls before exiting", async () => {
       ["gh", "pr", "edit", "4", "--add-reviewer", "@review-bot,@copilot"],
       result(),
     ),
-    exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/4/comments",
-      ],
-      result(JSON.stringify([[]])),
-    ),
-    exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/4/comments",
-      ],
-      result(JSON.stringify([[]])),
-    ),
+    exact(pullReviewCommentsApiArgs(4), result(JSON.stringify([[]]))),
+    exact(pullIssueCommentsApiArgs(4), result(JSON.stringify([[]]))),
+    exact(pullReviewCommentsApiArgs(4), result(JSON.stringify([[]]))),
+    exact(pullIssueCommentsApiArgs(4), result(JSON.stringify([[]]))),
   ]);
 
   const workflow = await runPromptWorkflow("Wait for review comments", {
@@ -790,7 +781,7 @@ it("review loop respects max unproductive polls before exiting", async () => {
     shell.calls.filter(
       (args) => args[0] === "gh" && args[1] === "api" && args[3] === "--slurp",
     ).length,
-  ).toBe(2);
+  ).toBe(4);
   shell.assertComplete();
 });
 
@@ -876,13 +867,7 @@ it("ignores untrusted review comments without marking them handled", async () =>
     ),
     exact(["gh", "pr", "edit", "5", "--add-reviewer", "@copilot"], result()),
     exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/5/comments",
-      ],
+      pullReviewCommentsApiArgs(5),
       result(
         JSON.stringify([
           [
@@ -900,14 +885,9 @@ it("ignores untrusted review comments without marking them handled", async () =>
         ]),
       ),
     ),
+    exact(pullIssueCommentsApiArgs(5), result(JSON.stringify([[]]))),
     exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/5/comments",
-      ],
+      pullReviewCommentsApiArgs(5),
       result(
         JSON.stringify([
           [
@@ -934,6 +914,7 @@ it("ignores untrusted review comments without marking them handled", async () =>
         ]),
       ),
     ),
+    exact(pullIssueCommentsApiArgs(5), result(JSON.stringify([[]]))),
     codexEditContains(
       "Review the new pull request review comments and address only valid issues.",
       (spec) => {
@@ -1041,13 +1022,7 @@ it("handles only new actionable review comments and re-requests review after pus
     ),
     exact(["gh", "pr", "edit", "2", "--add-reviewer", "@copilot"], result()),
     exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/2/comments",
-      ],
+      pullReviewCommentsApiArgs(2),
       result(
         JSON.stringify([
           [
@@ -1064,6 +1039,7 @@ it("handles only new actionable review comments and re-requests review after pus
         ]),
       ),
     ),
+    exact(pullIssueCommentsApiArgs(2), result(JSON.stringify([[]]))),
     codexEditContains(
       "Review the new pull request review comments and address only valid issues.",
       (spec) => {
@@ -1085,13 +1061,7 @@ it("handles only new actionable review comments and re-requests review after pus
     exact(["git", "push", "-u", "origin", "feature/review-loop"], result()),
     exact(["gh", "pr", "edit", "2", "--add-reviewer", "@copilot"], result()),
     exact(
-      [
-        "gh",
-        "api",
-        "--paginate",
-        "--slurp",
-        "repos/{owner}/{repo}/pulls/2/comments",
-      ],
+      pullReviewCommentsApiArgs(2),
       result(
         JSON.stringify([
           [
@@ -1127,6 +1097,22 @@ it("handles only new actionable review comments and re-requests review after pus
         ]),
       ),
     ),
+    exact(
+      pullIssueCommentsApiArgs(2),
+      result(
+        JSON.stringify([
+          [
+            {
+              id: 104,
+              body: "Please update the PR description too",
+              user: {
+                login: "copilot",
+              },
+            },
+          ],
+        ]),
+      ),
+    ),
     codexEditContains(
       "Review the new pull request review comments and address only valid issues.",
       (spec) => {
@@ -1148,6 +1134,7 @@ it("handles only new actionable review comments and re-requests review after pus
   expect(reviewPrompts).toHaveLength(2);
   expect(reviewPrompts[0]).toContain("ID: 101");
   expect(reviewPrompts[1]).toContain("ID: 102");
+  expect(reviewPrompts[1]).toContain("ID: 104");
   expect(reviewPrompts[1]).not.toContain("ID: 101");
   expect(reviewPrompts[1]).not.toContain("ID: 103");
   expect(

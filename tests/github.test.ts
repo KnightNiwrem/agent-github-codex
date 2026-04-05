@@ -106,7 +106,7 @@ describe("GitHubClient.createPullRequest", () => {
 });
 
 describe("GitHubClient.listReviewComments", () => {
-  it("parses slurped review comment pages", async () => {
+  it("aggregates review comments with general pull request comments", async () => {
     const shell = new StubShellRunner([
       result(
         JSON.stringify([
@@ -131,10 +131,31 @@ describe("GitHubClient.listReviewComments", () => {
           ],
         ]),
       ),
+      result(
+        JSON.stringify([
+          [
+            {
+              id: 99,
+              body: "Please summarize the rollout plan.",
+              user: { login: "reviewer-0" },
+              html_url: "https://example.com/comment/99",
+            },
+          ],
+        ]),
+      ),
     ]);
     const github = new GitHubClient(shell);
 
     await expect(github.listReviewComments("/repo", 22)).resolves.toEqual([
+      {
+        id: 99,
+        body: "Please summarize the rollout plan.",
+        path: undefined,
+        line: undefined,
+        userLogin: "reviewer-0",
+        url: "https://example.com/comment/99",
+        inReplyToId: undefined,
+      },
       {
         id: 101,
         body: "Please add coverage.",
@@ -169,6 +190,7 @@ describe("GitHubClient.listReviewComments", () => {
           },
         ]),
       ),
+      result(JSON.stringify([])),
     ]);
     const github = new GitHubClient(shell);
 
@@ -196,6 +218,7 @@ describe("GitHubClient.listReviewComments", () => {
           },
         ]),
       ),
+      result(JSON.stringify([])),
     ]);
     const github = new GitHubClient(shell);
 
@@ -215,6 +238,7 @@ describe("GitHubClient.listReviewComments", () => {
   it("throws when review comments are malformed", async () => {
     const shell = new StubShellRunner([
       result(JSON.stringify([{ id: "bad-id", body: "comment" }])),
+      result(JSON.stringify([])),
     ]);
     const logger = new CaptureLogger();
     const github = new GitHubClient(shell, logger);
@@ -239,6 +263,70 @@ describe("GitHubClient.listReviewComments", () => {
         event: "parse.github.response_failed",
         fields: expect.objectContaining({
           errorPrefix: "Failed to parse pull request review comments",
+          operation: "listReviewComments",
+          pullRequestNumber: 22,
+          stdout: '[{"id":"bad-id","body":"comment"}]',
+          error: expect.stringContaining("Invalid input"),
+          issues: expect.arrayContaining([
+            expect.objectContaining({
+              code: expect.any(String),
+              message: expect.any(String),
+              path: expect.any(String),
+            }),
+          ]),
+        }),
+      },
+    ]);
+  });
+
+  it("throws when pull request issue comments are malformed", async () => {
+    const shell = new StubShellRunner([
+      result(JSON.stringify([])),
+      result(JSON.stringify([{ id: "bad-id", body: "comment" }])),
+    ]);
+    const logger = new CaptureLogger();
+    const github = new GitHubClient(shell, logger);
+
+    await expect(github.listReviewComments("/repo", 22)).rejects.toThrow(
+      /^Failed to parse pull request issue comments:/,
+    );
+
+    expect(logger.entries).toEqual([
+      {
+        level: "info",
+        event: "parse.github.response_received",
+        fields: {
+          errorPrefix: "Failed to parse pull request review comments",
+          operation: "listReviewComments",
+          pullRequestNumber: 22,
+          stdout: "[]",
+        },
+      },
+      {
+        level: "info",
+        event: "parse.github.response_parsed",
+        fields: {
+          errorPrefix: "Failed to parse pull request review comments",
+          operation: "listReviewComments",
+          pullRequestNumber: 22,
+          result: [],
+        },
+      },
+      {
+        level: "info",
+        event: "parse.github.response_received",
+        fields: {
+          errorPrefix: "Failed to parse pull request issue comments",
+          operation: "listReviewComments",
+          pullRequestNumber: 22,
+          stdout: '[{"id":"bad-id","body":"comment"}]',
+        },
+      },
+      {
+        level: "error",
+        event: "parse.github.response_failed",
+        fields: expect.objectContaining({
+          errorPrefix: "Failed to parse pull request issue comments",
           operation: "listReviewComments",
           pullRequestNumber: 22,
           stdout: '[{"id":"bad-id","body":"comment"}]',
