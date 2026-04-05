@@ -51,6 +51,9 @@ describe("CLI versioning", () => {
 });
 
 describe("parseMaxUnproductivePolls", () => {
+  const maxUnproductivePollsErrorMessage =
+    "--max-unproductive-polls must be a non-negative integer";
+
   it("accepts non-negative integer strings", () => {
     expect(parseMaxUnproductivePolls("0")).toBe(0);
     expect(parseMaxUnproductivePolls("1")).toBe(1);
@@ -61,8 +64,8 @@ describe("parseMaxUnproductivePolls", () => {
 
   it("rejects invalid values with the CLI error message", () => {
     for (const value of ["-1", "1.5", "abc"]) {
-      expect(() => parseMaxUnproductivePolls(value)).toThrow(
-        "--max-unproductive-polls must be a non-negative integer",
+      expect(() => parseMaxUnproductivePolls(value)).toThrowError(
+        new Error(maxUnproductivePollsErrorMessage),
       );
     }
   });
@@ -72,8 +75,8 @@ describe("parseMaxUnproductivePolls", () => {
       "9007199254740992",
       "999999999999999999999999999999999999",
     ]) {
-      expect(() => parseMaxUnproductivePolls(value)).toThrow(
-        "--max-unproductive-polls must be a non-negative integer",
+      expect(() => parseMaxUnproductivePolls(value)).toThrowError(
+        new Error(maxUnproductivePollsErrorMessage),
       );
     }
   });

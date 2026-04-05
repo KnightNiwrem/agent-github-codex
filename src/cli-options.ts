@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { formatZodError } from "./zod-utils";
 
 const maxUnproductivePollsErrorMessage =
   "--max-unproductive-polls must be a non-negative integer";
@@ -28,7 +27,9 @@ export function parseMaxUnproductivePolls(value: string): number {
   const parsed = maxUnproductivePollsSchema.safeParse(value);
 
   if (!parsed.success) {
-    throw new Error(formatZodError(parsed.error, { singleLine: true }));
+    throw new Error(
+      parsed.error.issues[0]?.message ?? maxUnproductivePollsErrorMessage,
+    );
   }
 
   return parsed.data;
