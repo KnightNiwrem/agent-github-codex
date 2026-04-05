@@ -1,6 +1,6 @@
 {
   "name": "@deerdaily/agent-github-codex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic Bun CLI harness for Git, GitHub CLI, and Codex CLI.",
   "module": "src/index.ts",
   "bin": {

@@ -106,7 +106,7 @@ describe("GitHubClient.createPullRequest", () => {
 });
 
 describe("GitHubClient.listReviewComments", () => {
-  it("aggregates review comments with general pull request comments", async () => {
+  it("aggregates slurped review comments with slurped general pull request comments", async () => {
     const shell = new StubShellRunner([
       result(
         JSON.stringify([
@@ -173,6 +173,56 @@ describe("GitHubClient.listReviewComments", () => {
         userLogin: "reviewer-2",
         url: undefined,
         inReplyToId: 101,
+      },
+    ]);
+  });
+
+  it("aggregates single-page review comments with single-page general pull request comments", async () => {
+    const shell = new StubShellRunner([
+      result(
+        JSON.stringify([
+          {
+            id: 201,
+            body: "Please rename this helper.",
+            path: "src/github.ts",
+            line: 44,
+            user: { login: "reviewer-4" },
+            html_url: "https://example.com/comment/201",
+            in_reply_to_id: null,
+          },
+        ]),
+      ),
+      result(
+        JSON.stringify([
+          {
+            id: 200,
+            body: "Add a regression test for this path.",
+            user: { login: "reviewer-5" },
+            html_url: "https://example.com/comment/200",
+          },
+        ]),
+      ),
+    ]);
+    const github = new GitHubClient(shell);
+
+    await expect(github.listReviewComments("/repo", 22)).resolves.toEqual([
+      {
+        id: 200,
+        body: "Add a regression test for this path.",
+        path: undefined,
+        line: undefined,
+        userLogin: "reviewer-5",
+        url: "https://example.com/comment/200",
+        inReplyToId: undefined,
+      },
+      {
+        id: 201,
+        body: "Please rename this helper.",
+        path: "src/github.ts",
+        line: 44,
+        userLogin: "reviewer-4",
+        url: "https://example.com/comment/201",
+        inReplyToId: undefined,
       },
     ]);
   });
