@@ -51,19 +51,11 @@ const issueCommentPayloadSchema = z.object({
 const reviewCommentPageSchema = z.array(reviewCommentPayloadSchema);
 const issueCommentPageSchema = z.array(issueCommentPayloadSchema);
 
-function flattenSlurpedPages<T>(payload: T[] | T[][]): T[] {
-  const firstItem = payload[0];
-
-  if (Array.isArray(firstItem)) {
-    return (payload as T[][]).flat();
-  }
-
-  return payload as T[];
-}
-
 const reviewCommentPagesSchema = z
-  .union([reviewCommentPageSchema, z.array(reviewCommentPageSchema)])
-  .transform((payload) => flattenSlurpedPages(payload))
+  .union([
+    reviewCommentPageSchema.transform((payload) => payload),
+    z.array(reviewCommentPageSchema).transform((payload) => payload.flat()),
+  ])
   .transform((comments): ReviewComment[] =>
     comments.map((comment) => ({
       id: comment.id,
@@ -77,8 +69,10 @@ const reviewCommentPagesSchema = z
   );
 
 const issueCommentPagesSchema = z
-  .union([issueCommentPageSchema, z.array(issueCommentPageSchema)])
-  .transform((payload) => flattenSlurpedPages(payload))
+  .union([
+    issueCommentPageSchema.transform((payload) => payload),
+    z.array(issueCommentPageSchema).transform((payload) => payload.flat()),
+  ])
   .transform((comments): ReviewComment[] =>
     comments.map((comment) => ({
       id: comment.id,
