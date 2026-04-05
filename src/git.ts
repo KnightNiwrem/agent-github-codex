@@ -108,7 +108,7 @@ export class GitClient {
     cwd: string,
     branch: string,
     options: GitCommandOptions & { force?: boolean } = {},
-  ) {
+  ): ReturnType<ShellRunner["run"]> {
     const { force = false, ...gitOptions } = options;
 
     return this.runGit(
