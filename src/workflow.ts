@@ -141,10 +141,14 @@ export async function runPromptWorkflow(
         reason: "no_initial_changes",
       });
     } else {
+      const deleteError =
+        deleteResult.stderr.trim() ||
+        deleteResult.stdout.trim() ||
+        `Branch deletion failed with exit code ${deleteResult.exitCode}`;
       logger.warn("branch.delete_failed", {
         branch,
         reason: "no_initial_changes",
-        error: deleteResult.stderr.trim() || deleteResult.stdout.trim(),
+        error: deleteError,
       });
     }
 
