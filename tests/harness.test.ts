@@ -32,6 +32,7 @@ it("creates a default .agc layout and config", async () => {
   expect(state.rootDir).toBe(join(repoRoot, ".agc"));
   expect(state.stateDir).toBe(join(repoRoot, ".agc", "state"));
   expect(state.config.pullRequestReviewers).toEqual(["@copilot"]);
+  expect(state.config.remoteName).toBe("origin");
   expect(state.config.trustedReviewCommenters).toEqual([
     "@copilot",
     "@coderabbitai[bot]",
@@ -39,6 +40,7 @@ it("creates a default .agc layout and config", async () => {
     "@gemini-code-assist[bot]",
   ]);
   expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
+    remoteName: "origin",
     pullRequestReviewers: ["@copilot"],
     trustedReviewCommenters: [
       "@copilot",
@@ -51,6 +53,7 @@ it("creates a default .agc layout and config", async () => {
 
 it("builds the default config with the authenticated GitHub user", () => {
   expect(buildDefaultHarnessConfig("KnightNiwrem")).toEqual({
+    remoteName: "origin",
     pullRequestReviewers: ["@copilot"],
     trustedReviewCommenters: [
       "@copilot",
@@ -74,6 +77,7 @@ it("uses the injected default config resolver when creating .agc/config.json", a
   const state = await workspace.ensure(repoRoot);
 
   expect(state.config).toEqual({
+    remoteName: "origin",
     pullRequestReviewers: ["@copilot"],
     trustedReviewCommenters: [
       "@copilot",
@@ -112,10 +116,64 @@ it("reuses existing .agc reviewer configuration", async () => {
     "@review-bot",
     "@copilot",
   ]);
+  expect(state.config.remoteName).toBe("origin");
   expect(state.config.trustedReviewCommenters).toEqual([
     "review-bot",
     "@copilot",
   ]);
+});
+
+it("preserves a configured push remote from .agc config", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify(
+      {
+        remoteName: "upstream",
+        pullRequestReviewers: ["@copilot"],
+        trustedReviewCommenters: ["@copilot"],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const state = await workspace.ensure(repoRoot);
+
+  expect(state.config.remoteName).toBe("upstream");
+  expect(JSON.parse(await readFile(state.configFile, "utf8"))).toEqual({
+    remoteName: "upstream",
+    pullRequestReviewers: ["@copilot"],
+    trustedReviewCommenters: ["@copilot"],
+  });
+});
+
+it("rejects blank remote names in .agc config", async () => {
+  const repoRoot = await createRepositoryRoot();
+  const workspace = new FileSystemHarnessWorkspace();
+  const configFile = join(repoRoot, ".agc", "config.json");
+
+  await mkdir(join(repoRoot, ".agc"), { recursive: true });
+  await Bun.write(
+    configFile,
+    `${JSON.stringify(
+      {
+        remoteName: "   ",
+        pullRequestReviewers: ["@copilot"],
+        trustedReviewCommenters: ["@copilot"],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  await expect(workspace.ensure(repoRoot)).rejects.toThrow(
+    /Invalid \.agc\/config\.json:.*remoteName/s,
+  );
 });
 
 it("requires trusted review commenters in .agc config", async () => {

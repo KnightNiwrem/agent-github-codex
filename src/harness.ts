@@ -33,6 +33,7 @@ const DEFAULT_TRUSTED_REVIEW_COMMENTERS = [
 ];
 
 const harnessConfigSchema = z.object({
+  remoteName: z.string().trim().min(1).default("origin"),
   pullRequestReviewers: z.array(z.string().trim().min(1)).min(1),
   trustedReviewCommenters: z.array(z.string().trim().min(1)).min(1),
 });
@@ -47,6 +48,7 @@ export function buildDefaultHarnessConfig(
   }
 
   return {
+    remoteName: "origin",
     pullRequestReviewers: [...DEFAULT_PULL_REQUEST_REVIEWERS],
     trustedReviewCommenters: [
       ...new Set([
@@ -79,6 +81,7 @@ function normalizeConfig(value: unknown): HarnessConfig {
   }
 
   return {
+    remoteName: parsed.data.remoteName,
     pullRequestReviewers: [...new Set(parsed.data.pullRequestReviewers)],
     trustedReviewCommenters: [...new Set(parsed.data.trustedReviewCommenters)],
   };

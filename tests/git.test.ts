@@ -110,7 +110,9 @@ describe("GitClient git command helpers", () => {
     await expect(
       git.commit("/repo", "refactor: share git helpers"),
     ).resolves.toBeUndefined();
-    await expect(git.push("/repo", "fix/helpers")).resolves.toBeUndefined();
+    await expect(
+      git.push("/repo", "upstream", "fix/helpers"),
+    ).resolves.toBeUndefined();
 
     expect(shell.calls).toEqual([
       {
@@ -154,7 +156,7 @@ describe("GitClient git command helpers", () => {
         cwd: "/repo",
       },
       {
-        args: ["git", "push", "-u", "origin", "fix/helpers"],
+        args: ["git", "push", "-u", "upstream", "fix/helpers"],
         cwd: "/repo",
       },
     ]);

@@ -74,6 +74,7 @@ export interface WorkflowOptions {
 }
 
 export interface HarnessConfig {
+  remoteName: string;
   pullRequestReviewers: string[];
   trustedReviewCommenters: string[];
 }
