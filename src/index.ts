@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { Command } from "commander";
+import { parseMaxUnproductivePolls } from "./cli-options";
 import { ConsoleLogger } from "./logger";
 import { BunShellRunner } from "./shell";
 import { readPackageVersion } from "./version";
@@ -16,17 +17,7 @@ program
   .option(
     "--max-unproductive-polls <count>",
     "Number of consecutive review polls with no new actionable comments before exiting; 0 means poll indefinitely",
-    (value: string) => {
-      const parsed = Number.parseInt(value, 10);
-
-      if (!Number.isInteger(parsed) || parsed < 0) {
-        throw new Error(
-          "--max-unproductive-polls must be a non-negative integer",
-        );
-      }
-
-      return parsed;
-    },
+    parseMaxUnproductivePolls,
     1,
   )
   .argument("<prompt>", "Prompt describing the requested repository change")
